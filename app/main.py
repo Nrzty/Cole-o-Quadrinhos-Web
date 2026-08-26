@@ -42,7 +42,7 @@ async def pagina_inicial(request: Request):
     """Renderiza a interface principal com o scanner."""
     return templates.TemplateResponse(request=request, name="index.html")
 
-@app.get("/ping", tags=["Health Check"])
+@app.api_route("/ping", methods=["GET", "HEAD"], tags=["Health Check"])
 async def ping():
     """Rota para o UptimeRobot manter a aplicação ativa no Render."""
     return {"status": "alive"}
