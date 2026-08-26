@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Minha Coleção</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/static/css/styles.css">
+    
+    <!-- App Logic -->
+    <script src="/static/js/app.js"></script>
+    
+    <!-- Alpine (Deve vir depois da lógica do App) -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    
+    <!-- PWA Configs -->
+    <link rel="manifest" href="/static/manifest.json">
+    <meta name="theme-color" content="#FF3B3B">
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/static/sw.js').then(() => console.log("Service Worker Registrado!"));
+        }
+    </script>
+</head>
+<body class="bg-gray-100 min-h-screen" x-data="quadrinhosApp()">
+    
+    <!-- Layout Principal: Sidebar + Conteúdo -->
+    <div class="flex flex-col lg:flex-row min-h-screen">
+        
+        <!-- SIDEBAR -->
+        <aside class="w-full lg:w-96 bg-white border-b-4 lg:border-b-0 lg:border-r-4 border-black p-6 flex flex-col z-10 comic-shadow relative">
+            <header class="mb-8 text-center transform -rotate-2">
+                <h1 class="text-5xl text-white comic-border comic-shadow inline-block px-4 py-2 comic-bg-red uppercase">
+                    Quadrinhos!
+                </h1>
+                <p class="comic-font text-xl mt-3 tracking-widest">MINHA COLEÇÃO</p>
+            </header>
+
+            <!-- ADICIONAR NOVO -->
+            <div class="comic-bg-yellow comic-border p-5 mb-8">
+                <h2 class="text-2xl mb-4 uppercase text-black comic-font tracking-wide text-center">Adicionar Novo</h2>
+                
+                <div class="flex flex-col gap-4">
+                    
+                    <!-- Seleção de Tipo -->
+                    <div class="flex gap-4 justify-center font-bold text-lg">
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="radio" x-model="novoTipo" value="Quadrinho" class="w-5 h-5 accent-black"> 
+                            HQ
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="radio" x-model="novoTipo" value="Mangá" class="w-5 h-5 accent-black"> 
+                            MANGÁ
+                        </label>
+                    </div>
+
+                    <!-- Botão Scanner -->
+                    <button @click="toggleScanner()" class="comic-bg-blue comic-border comic-shadow text-black px-4 py-3 uppercase font-bold flex justify-center items-center gap-2 w-full">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                        <span x-text="scannerAtivo ? 'FECHAR' : 'ESCANEAR'" class="comic-font text-xl tracking-wider pt-1"></span>
+                    </button>
+
+                    <div id="reader" x-show="scannerAtivo" class="w-full comic-border bg-white mt-1" style="display: none;"></div>
+
+                    <div class="text-center font-black text-black comic-font text-lg my-1">OU DIGITE</div>
+
+                    <!-- Formulário Manual -->
+                    <form @submit.prevent="adicionar" class="flex flex-col gap-3">
+                        <input type="text" x-model="novoIsbn" placeholder="ISBN..." 
+                               class="comic-border p-3 text-lg font-bold focus:outline-none focus:bg-white bg-gray-50 text-center" required>
+                        <button type="submit" class="bg-black text-white comic-border comic-shadow py-3 uppercase font-bold text-xl disabled:opacity-50" :disabled="carregando">
+                            <span x-show="!carregando" class="comic-font tracking-widest pt-1">SALVAR!</span>
+                            <span x-show="carregando" class="comic-font tracking-widest pt-1">POW!...</span>
+                        </button>
+                    </form>
+                    
+                    <div x-show="mensagemErro" class="text-white comic-bg-red comic-border p-3 font-bold text-sm uppercase text-center" x-text="mensagemErro" style="display: none;"></div>
+                    <div x-show="mensagemSucesso" class="text-black comic-bg-blue comic-border p-3 font-bold text-sm uppercase text-center" x-text="mensagemSucesso" style="display: none;"></div>
+                </div>
+            </div>
+
+            <!-- FILTROS DA SIDEBAR -->
+            <div class="mt-auto">
+                <h3 class="comic-font text-xl mb-3 tracking-wide text-center">BUSCAR E FILTRAR</h3>
+                
+                <!-- Barra de Pesquisa -->
+                <div class="mb-4">
+                    <input type="text" x-model="termoBusca" placeholder="Nome da obra..." class="w-full comic-border p-2 text-lg font-bold focus:outline-none focus:bg-white bg-gray-50 text-center">
+                </div>
+
+                <div class="flex flex-col gap-2">
+                    <button @click="filtro = 'Todos'" :class="filtro === 'Todos' ? 'bg-black text-white' : 'bg-white text-black hover:bg-gray-200'" class="comic-border px-4 py-2 comic-font text-xl tracking-wide uppercase transition">Tudo (<span x-text="quadrinhos.length"></span>)</button>
+                    <button @click="filtro = 'Quadrinho'" :class="filtro === 'Quadrinho' ? 'bg-black text-white' : 'bg-white text-black hover:bg-gray-200'" class="comic-border px-4 py-2 comic-font text-xl tracking-wide uppercase transition">HQs (<span x-text="quadrinhos.filter(q => q.tipo === 'Quadrinho').length"></span>)</button>
+                    <button @click="filtro = 'Mangá'" :class="filtro === 'Mangá' ? 'bg-black text-white' : 'bg-white text-black hover:bg-gray-200'" class="comic-border px-4 py-2 comic-font text-xl tracking-wide uppercase transition">Mangás (<span x-text="quadrinhos.filter(q => q.tipo === 'Mangá').length"></span>)</button>
+                </div>
+            </div>
+            
+        </aside>
+
+        <!-- CONTEÚDO PRINCIPAL (GRID) -->
+        <main class="flex-1 p-6 md:p-10 overflow-y-auto">
+            
+            <div class="flex justify-between items-center mb-8">
+                <h2 class="text-4xl text-black uppercase comic-bg-white comic-border inline-block px-5 py-3 transform rotate-1 comic-shadow">
+                    Exibindo: <span x-text="filtro"></span>
+                </h2>
+                <button @click="carregarQuadrinhos()" class="text-black font-bold border-b-4 border-transparent hover:border-black transition comic-font text-2xl uppercase px-2">Atualizar</button>
+            </div>
+            
+            <div x-show="quadrinhos.length === 0 || quadrinhosFiltrados.length === 0" class="comic-bg-white comic-border comic-shadow p-10 text-center max-w-lg mx-auto mt-20" style="display: none;">
+                <p class="comic-font text-4xl text-gray-400 transform -rotate-2 mt-4">NENHUM ITEM ENCONTRADO... BAM!</p>
+            </div>
+            
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                <template x-for="q in quadrinhosFiltrados" :key="q.id">
+                    <div class="comic-bg-white comic-border comic-shadow p-4 flex flex-col relative group">
+                        
+                        <!-- Etiqueta do Tipo (Mangá/HQ) - Reduzida -->
+                        <div class="absolute -top-2 -right-2 px-2 py-0.5 border-2 border-black comic-shadow-sm transform rotate-3 z-10"
+                             :class="q.tipo === 'Mangá' ? 'comic-bg-blue text-black' : 'comic-bg-yellow text-black'">
+                            <span class="comic-font text-sm tracking-wider" x-text="q.tipo"></span>
+                        </div>
+                        
+                        <!-- Capa do Quadrinho -->
+                        <div class="w-full mb-3 flex-shrink-0 relative overflow-hidden bg-gray-200 comic-border" style="aspect-ratio: 2/3;">
+                            <template x-if="q.capa_url">
+                                <img :src="q.capa_url" :alt="q.titulo" class="w-full h-full object-cover">
+                            </template>
+                            <template x-if="!q.capa_url">
+                                <div class="w-full h-full flex flex-col items-center justify-center text-gray-400 opacity-50">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                    </svg>
+                                    <span class="comic-font text-lg">Sem Imagem</span>
+                                </div>
+                            </template>
+                        </div>
+
+                        <!-- Dados do Quadrinho -->
+                        <div class="flex-1 flex flex-col">
+                            <h3 class="comic-font text-2xl text-black mb-2 leading-tight flex-1" x-text="q.titulo"></h3>
+                            <div class="space-y-1 border-t-2 border-black pt-2 mb-3">
+                                <p class="text-xs font-black text-gray-900 uppercase">Autor: <span class="font-medium normal-case block truncate" :title="q.autor || 'Desconhecido'" x-text="q.autor || 'Desconhecido'"></span></p>
+                                <p class="text-xs font-black text-gray-900 uppercase">Editora: <span class="font-medium normal-case block truncate" :title="(q.editora || 'Desconhecida') + ' ' + (q.ano ? '('+q.ano+')' : '')"><span x-text="q.editora || 'Desconhecida'"></span> <span class="font-black text-black" x-show="q.ano" x-text="'(' + q.ano + ')'"></span></span></p>
+                            </div>
+                        </div>
+                        
+                        <!-- Rodapé -->
+                        <div class="flex justify-between items-center pt-2 border-t-2 border-black">
+                            <p class="text-[10px] font-bold bg-gray-200 border-2 border-black px-1 py-0.5 max-w-[50%] truncate">ISBN: <span x-text="q.isbn"></span></p>
+                            
+                            <div class="flex gap-2">
+                                <button @click="editarCapa(q.id)" class="text-black bg-yellow-300 border-2 border-black hover:bg-yellow-400 transition px-2 py-0.5 comic-font text-sm tracking-wider" title="Trocar Capa">
+                                    IMG
+                                </button>
+                                <button @click="remover(q.id)" class="text-white comic-bg-red border-2 border-black hover:bg-black transition px-2 py-0.5 comic-font text-base tracking-wider" title="Remover">
+                                    DEL
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+            </div>
+
+        </main>
+    </div>
+</body>
+</html>

@@ -1,0 +1,21 @@
+{
+  "name": "Minha Coleção (HQ)",
+  "short_name": "Coleção HQ",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f0f0f0",
+  "theme_color": "#FF3B3B",
+  "description": "App para scanear e controlar minha coleção de Quadrinhos e Mangás",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/3260/3260867.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/3260/3260867.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    }
+  ]
+}
