@@ -10,6 +10,11 @@ document.addEventListener('alpine:init', () => {
         mensagemSucesso: '',
         scannerAtivo: false,
         html5QrcodeScanner: null,
+        
+        modalManual: false,
+        formManual: {
+            titulo: '', autor: '', editora: '', ano: '', isbn: '', capa_url: '', tipo: 'Quadrinho'
+        },
 
         init() {
             this.carregarQuadrinhos();
@@ -111,6 +116,30 @@ document.addEventListener('alpine:init', () => {
                 setTimeout(() => { this.mensagemSucesso = ''; }, 3000);
             } catch (error) {
                 this.mensagemErro = error.message;
+            } finally {
+                this.carregando = false;
+            }
+        },
+
+        async salvarManual() {
+            if (!this.formManual.titulo) { alert("O título é obrigatório!"); return; }
+            this.carregando = true;
+            try {
+                const res = await fetch('/api/quadrinhos/manual', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(this.formManual)
+                });
+                
+                if (!res.ok) throw new Error((await res.json()).detail || "Erro ao adicionar.");
+                
+                this.modalManual = false;
+                this.formManual = {titulo: '', autor: '', editora: '', ano: '', isbn: '', capa_url: '', tipo: 'Quadrinho'};
+                this.mensagemSucesso = "Cadastrado com sucesso!";
+                await this.carregarQuadrinhos();
+                setTimeout(() => { this.mensagemSucesso = ''; }, 3000);
+            } catch (error) {
+                alert(error.message);
             } finally {
                 this.carregando = false;
             }

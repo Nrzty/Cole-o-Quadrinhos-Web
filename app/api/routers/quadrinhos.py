@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app.schemas import QuadrinhoCreate, QuadrinhoResponse
+from app.schemas import QuadrinhoCreate, QuadrinhoResponse, QuadrinhoManualCreate
 from app.services.quadrinho_service import QuadrinhoService
 
 router = APIRouter(prefix="/api/quadrinhos", tags=["Quadrinhos"])
@@ -11,6 +11,12 @@ async def adicionar_quadrinho(quadrinho: QuadrinhoCreate, db: Session = Depends(
     """Rota para adicionar um quadrinho (acessa a Brasil API)"""
     service = QuadrinhoService(db)
     return await service.adicionar(quadrinho)
+
+@router.post("/manual", response_model=QuadrinhoResponse)
+async def adicionar_quadrinho_manual(quadrinho: QuadrinhoManualCreate, db: Session = Depends(get_db)):
+    """Rota para adicionar manualmente"""
+    service = QuadrinhoService(db)
+    return await service.adicionar_manual(quadrinho)
 
 @router.get("/", response_model=list[QuadrinhoResponse])
 def listar_quadrinhos(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):

@@ -3,8 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Minha Coleção</title>
+    <title>Meus Quadrinhos</title>
     
+    <link rel="icon" href="/static/icon.jpg">
+
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="/static/css/styles.css">
     
@@ -81,18 +83,16 @@
                     
                     <div x-show="mensagemErro" class="text-white comic-bg-red comic-border p-3 font-bold text-sm uppercase text-center" x-text="mensagemErro" style="display: none;"></div>
                     <div x-show="mensagemSucesso" class="text-black comic-bg-blue comic-border p-3 font-bold text-sm uppercase text-center" x-text="mensagemSucesso" style="display: none;"></div>
+                    
+                    <button @click="modalManual = true" class="mt-2 text-black font-bold underline hover:bg-black hover:text-white transition text-center uppercase tracking-wider p-2 comic-border border-dashed">
+                        Adicionar Manualmente
+                    </button>
                 </div>
             </div>
 
             <!-- FILTROS DA SIDEBAR -->
-            <div class="mt-auto">
-                <h3 class="comic-font text-xl mb-3 tracking-wide text-center">BUSCAR E FILTRAR</h3>
-                
-                <!-- Barra de Pesquisa -->
-                <div class="mb-4">
-                    <input type="text" x-model="termoBusca" placeholder="Nome da obra..." class="w-full comic-border p-2 text-lg font-bold focus:outline-none focus:bg-white bg-gray-50 text-center">
-                </div>
-
+            <div class="mb-6">
+                <h3 class="comic-font text-xl mb-3 tracking-wide text-center uppercase">Categorias</h3>
                 <div class="flex flex-col gap-2">
                     <button @click="filtro = 'Todos'" :class="filtro === 'Todos' ? 'bg-black text-white' : 'bg-white text-black hover:bg-gray-200'" class="comic-border px-4 py-2 comic-font text-xl tracking-wide uppercase transition">Tudo (<span x-text="quadrinhos.length"></span>)</button>
                     <button @click="filtro = 'Quadrinho'" :class="filtro === 'Quadrinho' ? 'bg-black text-white' : 'bg-white text-black hover:bg-gray-200'" class="comic-border px-4 py-2 comic-font text-xl tracking-wide uppercase transition">HQs (<span x-text="quadrinhos.filter(q => q.tipo === 'Quadrinho').length"></span>)</button>
@@ -105,11 +105,19 @@
         <!-- CONTEÚDO PRINCIPAL (GRID) -->
         <main class="flex-1 p-6 md:p-10 overflow-y-auto">
             
-            <div class="flex justify-between items-center mb-8">
-                <h2 class="text-4xl text-black uppercase comic-bg-white comic-border inline-block px-5 py-3 transform rotate-1 comic-shadow">
-                    Exibindo: <span x-text="filtro"></span>
-                </h2>
-                <button @click="carregarQuadrinhos()" class="text-black font-bold border-b-4 border-transparent hover:border-black transition comic-font text-2xl uppercase px-2">Atualizar</button>
+            <div class="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
+                <div class="flex items-center gap-4">
+                    <h2 class="text-4xl text-black uppercase comic-bg-white comic-border inline-block px-5 py-3 transform rotate-1 comic-shadow">
+                        Exibindo: <span x-text="filtro"></span>
+                    </h2>
+                </div>
+                
+                <div class="flex items-center gap-4 w-full md:w-auto">
+                    <!-- Barra de Pesquisa Movida para o Header Principal -->
+                    <input type="text" x-model="termoBusca" placeholder="Pesquisar por Título..." class="comic-border p-3 text-lg font-bold focus:outline-none focus:bg-white bg-gray-50 flex-1 md:w-64">
+                    
+                    <button @click="carregarQuadrinhos()" class="text-black font-bold border-b-4 border-transparent hover:border-black transition comic-font text-2xl uppercase px-2">Atualizar</button>
+                </div>
             </div>
             
             <div x-show="quadrinhos.length === 0 || quadrinhosFiltrados.length === 0" class="comic-bg-white comic-border comic-shadow p-10 text-center max-w-lg mx-auto mt-20" style="display: none;">
@@ -168,6 +176,42 @@
             </div>
 
         </main>
+    </div>
+
+    <!-- MODAL DE CADASTRO MANUAL -->
+    <div x-show="modalManual" class="fixed inset-0 bg-black bg-opacity-75 flex justify-center items-center z-50 p-4" style="display: none;">
+        <div class="comic-bg-white comic-border comic-shadow p-6 w-full max-w-lg relative" @click.outside="modalManual = false">
+            <button @click="modalManual = false" class="absolute -top-3 -right-3 comic-bg-red text-white comic-border comic-font text-xl px-3 py-1 hover:bg-black transition z-10">X</button>
+            
+            <h2 class="comic-font text-3xl mb-4 uppercase text-center">Cadastro Manual</h2>
+            
+            <form @submit.prevent="salvarManual" class="flex flex-col gap-3">
+                <input type="text" x-model="formManual.titulo" placeholder="Título da Obra *" class="comic-border p-2 font-bold focus:outline-none focus:bg-yellow-50" required>
+                
+                <div class="flex gap-2">
+                    <input type="text" x-model="formManual.autor" placeholder="Autor(es)" class="comic-border p-2 focus:outline-none focus:bg-yellow-50 flex-1">
+                    <input type="number" x-model="formManual.ano" placeholder="Ano" class="comic-border p-2 focus:outline-none focus:bg-yellow-50 w-24">
+                </div>
+                
+                <input type="text" x-model="formManual.editora" placeholder="Editora" class="comic-border p-2 focus:outline-none focus:bg-yellow-50">
+                <input type="text" x-model="formManual.isbn" placeholder="ISBN (Opcional)" class="comic-border p-2 focus:outline-none focus:bg-yellow-50">
+                <input type="url" x-model="formManual.capa_url" placeholder="Link da Capa (Opcional)" class="comic-border p-2 focus:outline-none focus:bg-yellow-50">
+                
+                <div class="flex gap-4 justify-center font-bold text-lg my-2">
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="radio" x-model="formManual.tipo" value="Quadrinho" class="w-5 h-5 accent-black"> HQ
+                    </label>
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="radio" x-model="formManual.tipo" value="Mangá" class="w-5 h-5 accent-black"> MANGÁ
+                    </label>
+                </div>
+
+                <button type="submit" class="bg-black text-white comic-border comic-shadow py-3 uppercase font-bold text-xl disabled:opacity-50 mt-2" :disabled="carregando">
+                    <span x-show="!carregando" class="comic-font tracking-widest pt-1">SALVAR!</span>
+                    <span x-show="carregando" class="comic-font tracking-widest pt-1">PROCESSANDO...</span>
+                </button>
+            </form>
+        </div>
     </div>
 </body>
 </html>

@@ -1,8 +1,9 @@
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
 from app.models import Quadrinho
-from app.schemas import QuadrinhoCreate
+from app.schemas import QuadrinhoCreate, QuadrinhoManualCreate
 from app.services.brasil_api import BrasilAPIService
+import httpx
 
 class QuadrinhoService:
     def __init__(self, db: Session):
@@ -53,6 +54,31 @@ class QuadrinhoService:
             ano=api_data.get("year"),
             tipo=dados.tipo,
             capa_url=capa_url
+        )
+        
+        self.db.add(novo_quadrinho)
+        self.db.commit()
+        self.db.refresh(novo_quadrinho)
+        return novo_quadrinho
+
+    async def adicionar_manual(self, dados: QuadrinhoManualCreate):
+        """Adiciona um novo quadrinho manualmente sem depender de API externa."""
+        isbn_limpo = dados.isbn.replace("-", "").strip() if dados.isbn else ""
+        
+        if isbn_limpo:
+            db_quadrinho = self.db.query(Quadrinho).filter(Quadrinho.isbn == isbn_limpo).first()
+            if db_quadrinho:
+                from fastapi import HTTPException
+                raise HTTPException(status_code=400, detail="ISBN já cadastrado na coleção!")
+                
+        novo_quadrinho = Quadrinho(
+            isbn=isbn_limpo,
+            titulo=dados.titulo,
+            autor=dados.autor,
+            editora=dados.editora,
+            ano=dados.ano,
+            tipo=dados.tipo,
+            capa_url=dados.capa_url
         )
         
         self.db.add(novo_quadrinho)
