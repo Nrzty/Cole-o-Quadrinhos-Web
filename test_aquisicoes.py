@@ -22,6 +22,14 @@ class Tests(unittest.TestCase):
    q=c.post('/api/desejos',json={'titulo':'Desejo sem ISBN'}).json()
    self.assertEqual(c.delete('/api/desejos/'+str(q['id'])).status_code,200)
    self.assertEqual(c.get('/').status_code,200)
+ def test_consulta_recomendacoes_validacao_e_parametros(self):
+  mock=AsyncMock(return_value={'itens':[],'mensagem':'','tem_mais':True,'proxima_rodada':2})
+  with patch('app.api.routers.desejos.recomendar',mock),TestClient(app) as c:
+   r=c.post('/api/recomendacoes/consulta',json={'modo':'explorar','rodada':1,'vistos':['obra-vista'],'atualizar':True})
+   self.assertEqual(r.status_code,200,r.text)
+   self.assertEqual(mock.await_args.kwargs,{'modo':'explorar','rodada':1,'vistos':['obra-vista'],'atualizar':True})
+   self.assertEqual(c.post('/api/recomendacoes/consulta',json={'modo':'invalido'}).status_code,422)
+   self.assertEqual(c.post('/api/recomendacoes/consulta',json={'rodada':21}).status_code,422)
  def test_catalog_success(self):
   candidato={'titulo':'Absolute Batman vol. 2','isbn':'9786555123450','idioma':'pt','editora':'Panini Brasil','fonte_nome':'Panini Brasil','fonte_url':'https://panini.com.br/absolute-batman-02'}
   with patch('app.services.recomendacoes.buscar_panini',new=AsyncMock(return_value=[candidato])),patch('app.services.recomendacoes.buscar_google',new=AsyncMock(return_value=[])):

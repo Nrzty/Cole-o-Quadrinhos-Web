@@ -7,7 +7,7 @@ from urllib.parse import urlparse
 import httpx
 from app.services.classificacao import identificar_colecao
 from app.services.capas import url_segura
-from app.services.leitura import planejar, corresponde, sobrepoe, serie_volume, limpo
+from app.services.leitura import planejar, corresponde, sobrepoe, serie_volume, limpo, planos_recomendacao, chave_leitura
 from app.services.catalogo_br import buscar_panini
 
 _cache = {}
@@ -36,8 +36,8 @@ def mesma_edicao_ou_conteudo(a, b):
     sa, sb = serie_volume(a), serie_volume(b)
     return bool(sa and sa == sb) or sobrepoe(a, b)
 
-def classificar(candidatos, acervo, desejos):
-    planos = planejar(acervo, desejos)
+def classificar(candidatos, acervo, desejos, modo='continuar'):
+    planos = planos_recomendacao(acervo, desejos, modo)
     resultados = []
     for q in candidatos:
         if not edicao_brasileira(q) or any(mesma_edicao_ou_conteudo(q, x) for x in acervo + desejos):
@@ -51,7 +51,7 @@ def classificar(candidatos, acervo, desejos):
         resultados.append(q | {'colecao': q.get('colecao') or identificar_colecao(q['titulo']),
             'motivos': [plano['motivo']], 'pontuacao': plano['prioridade'], 'categoria': plano['categoria'],
             'fonte_relacao': plano.get('fonte_relacao'),
-            'chave': chave_isbn(q.get('isbn')) or q.get('fonte_url') or chave_titulo(q['titulo'])})
+            'chave': chave_leitura(q)})
     # Uma história aparece uma vez, mesmo com vários formatos e ISBNs no catálogo.
     finais = []
     for q in sorted(resultados, key=lambda q: (-q['pontuacao'], q.get('fonte_nome') != 'Panini Brasil', 'omnibus' in limpo(q['titulo']), q['titulo'])):
@@ -79,16 +79,20 @@ async def buscar_google(client, plano):
             'idioma': info.get('language'), 'fonte_nome': 'Google Books', 'fonte_url': 'https://books.google.com/books?id=' + item['id']})
     return [q for q in candidatos if edicao_brasileira(q) and corresponde(q, plano)]
 
-async def recomendar(acervo, desejos):
+async def recomendar(acervo, desejos, modo='para_voce', rodada=0, vistos=None, atualizar=False):
+    vistos = set(vistos or [])
+    def apresentar(resposta):
+        return resposta | {'itens': [q for q in resposta['itens'] if q['chave'] not in vistos]}
     if not acervo:
-        return {'itens': [], 'mensagem': 'Adicione quadrinhos à estante para receber recomendações.'}
-    assinatura = repr((acervo, desejos))
+        return {'itens': [], 'mensagem': 'Adicione quadrinhos à estante para receber recomendações.', 'tem_mais': False, 'proxima_rodada': 0, 'modo': modo}
+    assinatura = repr((acervo, desejos, modo, rodada))
     cache = _cache.get(assinatura)
-    if cache and time.monotonic() - cache[0] < 900:
-        return cache[1]
-    planos = planejar(acervo, desejos)
+    if not atualizar and cache and time.monotonic() - cache[0] < 900:
+        return apresentar(cache[1])
+    todos_planos = planos_recomendacao(acervo, desejos, modo)
+    planos = todos_planos[rodada * 8:(rodada + 1) * 8]
     if not planos:
-        return {'itens': [], 'mensagem': 'Ainda não identificamos uma sequência ou relação de leitura segura. Confira os nomes das séries e a numeração das edições; não usamos apenas autor ou editora para sugerir compras.'}
+        return {'itens': [], 'mensagem': 'As buscas disponíveis para este modo terminaram. Experimente Explorar novas histórias ou atualize a consulta mais tarde.' if rodada else 'Ainda não temos caminhos mapeados para este modo e esta coleção. Experimente outro modo; novas relações podem ser adicionadas ao catálogo.', 'tem_mais': False, 'proxima_rodada': rodada, 'modo': modo}
     falhas = []
     limite = asyncio.Semaphore(3)
     async with httpx.AsyncClient(timeout=12, follow_redirects=True, headers={'User-Agent': 'Estante/1.0 (catalog lookup)'}) as client:
@@ -106,13 +110,13 @@ async def recomendar(acervo, desejos):
                         falhas.append('Google Books')
                 return candidatos
         lotes = await asyncio.gather(*(consultar(p) for p in planos))
-    itens = classificar([q for lote in lotes for q in lote], acervo, desejos)
+    itens = classificar([q for lote in lotes for q in lote], acervo, desejos, modo)
     mensagem = 'Parte das consultas ao catálogo falhou. Mostramos somente as edições brasileiras confirmadas.' if falhas else ''
     if not itens and not falhas:
         mensagem = 'Não encontramos edições brasileiras confirmadas para os próximos passos identificados. Isso não significa que sua coleção esteja completa.'
-    resposta = {'itens': itens, 'mensagem': mensagem}
+    resposta = {'itens': itens, 'mensagem': mensagem, 'tem_mais': (rodada + 1) * 8 < len(todos_planos), 'proxima_rodada': rodada + 1, 'modo': modo}
     if not falhas:
         if len(_cache) > 50:
             _cache.clear()
         _cache[assinatura] = (time.monotonic(), resposta)
-    return resposta
+    return apresentar(resposta)

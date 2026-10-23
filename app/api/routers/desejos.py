@@ -100,3 +100,20 @@ async def recomendacoes(db: Session = Depends(get_db)):
     acervo = [service.resposta(q) for q in db.query(Quadrinho).all()]
     desejos = [resposta(q) for q in db.query(Desejo).all()]
     return await recomendar(acervo, desejos)
+
+
+from typing import Literal
+from pydantic import BaseModel
+
+class ConsultaRecomendacoes(BaseModel):
+    modo: Literal['para_voce', 'continuar', 'explorar'] = 'para_voce'
+    rodada: int = Field(0, ge=0, le=20)
+    vistos: list[str] = Field(default_factory=list, max_length=200)
+    atualizar: bool = False
+
+@router.post('/recomendacoes/consulta')
+async def consultar_recomendacoes(dados: ConsultaRecomendacoes, db: Session = Depends(get_db)):
+    service = QuadrinhoService(db)
+    acervo = [service.resposta(q) for q in db.query(Quadrinho).all()]
+    desejos = [resposta(q) for q in db.query(Desejo).all()]
+    return await recomendar(acervo, desejos, modo=dados.modo, rodada=dados.rodada, vistos=dados.vistos, atualizar=dados.atualizar)

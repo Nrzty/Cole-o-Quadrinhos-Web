@@ -1,5 +1,5 @@
 document.addEventListener('alpine:init', () => Alpine.data('quadrinhosApp', () => ({
- adicionarAberto: false, pagina: 1, porPagina: 24, aba: 'estante', desejos: [], recomendacoes: [], buscandoRecomendacoes: false, avisoRecomendacoes: '', paginaDesejos: 1, destinoManual: 'estante', desejoEditando: null, ocupados: {},
+ modoRecomendacoes: 'para_voce', rodadaRecomendacoes: 0, temMaisSugestoes: false, historicoSugestoes: [], consultaFeita: false, adicionarAberto: false, pagina: 1, porPagina: 24, aba: 'estante', desejos: [], recomendacoes: [], buscandoRecomendacoes: false, avisoRecomendacoes: '', paginaDesejos: 1, destinoManual: 'estante', desejoEditando: null, ocupados: {},
  quadrinhos: [], novoIsbn: '', novoTipo: 'Quadrinho', filtro: 'Todos', colecao: 'Todas', termoBusca: '', ordem: 'titulo', carregando: false, carregandoLista: true, mensagemErro: '', mensagemSucesso: '', progresso: '', buscandoCapas: false, scannerAtivo: false, scanner: null, modalManual: false,
  formManual: {titulo:'', autor:'', editora:'', ano:'', isbn:'', capa_url:'', tipo:'Quadrinho', colecao:''},
  init() { this.carregarQuadrinhos(); this.carregarDesejos(); for(const campo of ['filtro','colecao','termoBusca','ordem','porPagina']) this.$watch(campo,()=>{this.pagina=1;}); this.$watch('quadrinhos',()=>{this.pagina=Math.min(this.pagina,this.totalPaginas);}); this.$watch('desejos',()=>{this.paginaDesejos=Math.min(this.paginaDesejos,this.totalPaginasDesejos);}); },
@@ -10,7 +10,20 @@ document.addEventListener('alpine:init', () => Alpine.data('quadrinhosApp', () =
  async aquisicoes(url,options={}){const r=await fetch('/api/'+url,options);const data=await r.json();if(!r.ok)throw Error(Array.isArray(data.detail)?data.detail.map(e=>e.msg).join('; '):data.detail||'Não foi possível concluir.');return data;},
  async carregarDesejos(){try{this.desejos=await this.aquisicoes('desejos');}catch(e){this.mensagemErro=e.message;}},
  abrirCadastro(destino='estante',q=null){this.destinoManual=destino;this.desejoEditando=q?.id||null;this.formManual={titulo:'',autor:'',editora:'',ano:'',isbn:'',capa_url:'',tipo:'Quadrinho',colecao:'',prioridade:2,notas:'',...(q||{})};this.mensagemErro='';this.modalManual=true;},
- async buscarRecomendacoes(){if(this.buscandoRecomendacoes)return;this.buscandoRecomendacoes=true;this.avisoRecomendacoes='';try{const data=await this.aquisicoes('recomendacoes');this.recomendacoes=data.itens;this.avisoRecomendacoes=data.mensagem;}catch(e){this.avisoRecomendacoes=e.message;}finally{this.buscandoRecomendacoes=false;}},
+ async buscarRecomendacoes(outras=false,modo=this.modoRecomendacoes){
+  if(this.buscandoRecomendacoes)return;
+  const mudando=modo!==this.modoRecomendacoes;
+  this.buscandoRecomendacoes=true;this.avisoRecomendacoes='';
+  const vistos=outras?this.historicoSugestoes:[];
+  try{
+   const data=await this.aquisicoes('recomendacoes/consulta',this.json('POST',{modo,rodada:outras&&!mudando?this.rodadaRecomendacoes:0,vistos,atualizar:!outras}));
+   this.modoRecomendacoes=modo;this.consultaFeita=true;this.rodadaRecomendacoes=data.proxima_rodada||0;this.temMaisSugestoes=!!data.tem_mais;
+   if(!outras||mudando||data.itens.length)this.recomendacoes=data.itens;
+   this.historicoSugestoes=[...new Set([...this.historicoSugestoes,...data.itens.map(q=>q.chave)])].slice(-200);
+   this.avisoRecomendacoes=data.mensagem||(!data.itens.length&&outras?'Não encontramos novas edições nesta rodada. '+(data.tem_mais?'Você pode tentar a próxima busca.':'As opções deste modo terminaram. Experimente outro modo ou atualize a consulta mais tarde.'):'');
+  }catch(e){this.avisoRecomendacoes=e.message;}finally{this.buscandoRecomendacoes=false;}
+ },
+ async mudarModoRecomendacoes(modo){if(modo===this.modoRecomendacoes&&this.consultaFeita)return;await this.buscarRecomendacoes(true,modo);},
  async desejar(q){const chave=q.chave||q.isbn;if(this.ocupados[chave])return;this.ocupados[chave]=true;try{await this.aquisicoes('desejos',this.json('POST',{titulo:q.titulo,isbn:q.isbn,autor:q.autor,editora:q.editora,ano:q.ano,tipo:q.tipo,capa_url:q.capa_url,colecao:q.colecao==='Outras coleções'?null:q.colecao}));this.recomendacoes=this.recomendacoes.filter(x=>(x.chave||x.isbn)!==chave);await this.carregarDesejos();this.mensagemSucesso='Edição adicionada à lista de desejos.';}catch(e){this.mensagemErro=e.message;}finally{delete this.ocupados[chave];}},
  async adquirir(q){if(!confirm('Adicionar esta edição à sua estante e retirar da lista de desejos?'))return;if(this.ocupados[q.id])return;this.ocupados[q.id]=true;try{await this.aquisicoes('desejos/'+q.id+'/adquirir',{method:'POST'});await Promise.all([this.carregarQuadrinhos(),this.carregarDesejos()]);this.recomendacoes=[];this.mensagemSucesso='Edição adicionada à estante.';}catch(e){this.mensagemErro=e.message;}finally{delete this.ocupados[q.id];}},
  async removerDesejo(q){if(!confirm('Remover esta edição da lista de desejos?'))return;try{await this.aquisicoes('desejos/'+q.id,{method:'DELETE'});await this.carregarDesejos();}catch(e){this.mensagemErro=e.message;}},
