@@ -1,0 +1,44 @@
+@import url('https://fonts.googleapis.com/css2?family=Bangers&family=Inter:wght@400;700;900&display=swap');
+
+body {
+    font-family: 'Inter', sans-serif;
+    background-color: #f0f0f0;
+    /* Padrão de bolinhas simulando retículas de impressão de quadrinhos clássicos */
+    background-image: radial-gradient(#ccc 15%, transparent 16%), radial-gradient(#ccc 15%, transparent 16%);
+    background-size: 20px 20px;
+    background-position: 0 0, 10px 10px;
+}
+
+/* Fonte estilo título de HQ */
+h1, h2, h3, .comic-font {
+    font-family: 'Bangers', cursive;
+    letter-spacing: 1px;
+}
+
+/* Bordas duras */
+.comic-border {
+    border: 4px solid #000;
+    border-radius: 0; /* Sem bordas arredondadas no estilo Pop Art raiz */
+}
+
+/* Sombras duras */
+.comic-shadow {
+    box-shadow: 6px 6px 0px 0px #000;
+    transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.comic-shadow:hover {
+    transform: translate(-3px, -3px);
+    box-shadow: 9px 9px 0px 0px #000;
+}
+
+.comic-shadow:active {
+    transform: translate(6px, 6px);
+    box-shadow: 0px 0px 0px 0px #000;
+}
+
+/* Cores vibrantes padrão HQ */
+.comic-bg-yellow { background-color: #FFD900; }
+.comic-bg-blue { background-color: #00E5FF; }
+.comic-bg-red { background-color: #FF3B3B; }
+.comic-bg-white { background-color: #FFFFFF; }

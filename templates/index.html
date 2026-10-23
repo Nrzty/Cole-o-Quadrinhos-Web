@@ -1,217 +1,28 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Meus Quadrinhos</title>
-    
-    <link rel="icon" href="/static/icon.jpg">
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Estante — Minha coleção</title><link rel="icon" href="/static/icon.jpg"><link rel="manifest" href="/static/manifest.json"><meta name="theme-color" content="#111310"><link rel="stylesheet" href="/static/css/styles.css"><script defer src="/static/js/app.js"></script><script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.9/dist/cdn.min.js"></script><script defer src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script></head>
+<body x-data="quadrinhosApp" @keydown.escape.window="modalManual=false"><svg class="icon-defs" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs>
+<symbol id="i-library" viewBox="0 0 24 24"><path d="M4 4h5v16H4zM9 4h5v16H9zM17 4l4 15-4 1-4-15z"/></symbol>
+<symbol id="i-heart" viewBox="0 0 24 24"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8Z"/></symbol>
+<symbol id="i-compass" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m16 8-2 6-6 2 2-6z"/></symbol>
+<symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+<symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></symbol>
+<symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 8a8 8 0 1 0 0 8M20 3v5h-5"/></symbol>
+<symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></symbol>
+<symbol id="i-scan" viewBox="0 0 24 24"><path d="M8 3H3v5M16 3h5v5M3 16v5h5M21 16v5h-5M7 7v10M10 7v10M14 7v10M17 7v10"/></symbol>
+<symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14m-6-6 6 6-6 6"/></symbol>
+</defs></svg>
+<div class="desktop-bar"><span class="desktop-app"><svg class="icon" aria-hidden="true"><use href="#i-library"></use></svg> estante</span><div class="workspaces" aria-label="Navegação"><button @click="aba='estante'" :class="{selected:aba==='estante'}" aria-label="Abrir biblioteca">1</button><button @click="aba='desejos'" :class="{selected:aba==='desejos'}" aria-label="Abrir desejos">2</button><button @click="aba='recomendacoes'" :class="{selected:aba==='recomendacoes'}" aria-label="Abrir recomendações">3</button></div><span class="desktop-status"><i></i> Biblioteca pessoal</span></div>
+<aside class="sidebar"><a class="brand" href="/"><svg class="icon" aria-hidden="true"><use href="#i-library"></use></svg><span>estante<small>QUADRINHOS & MANGÁS</small></span></a><nav aria-label="Navegação principal"><p class="nav-label">Biblioteca</p><button class="nav" :class="{active:aba==='estante'}" @click="aba='estante'"><svg class="icon" aria-hidden="true"><use href="#i-grid"></use></svg><span>Minha coleção</span><b x-text="quadrinhos.length"></b></button><button class="nav" :class="{active:aba==='desejos'}" @click="aba='desejos'"><svg class="icon" aria-hidden="true"><use href="#i-heart"></use></svg><span>Lista de desejos</span><b x-text="desejos.length"></b></button><button class="nav" :class="{active:aba==='recomendacoes'}" @click="aba='recomendacoes'"><svg class="icon" aria-hidden="true"><use href="#i-compass"></use></svg><span>Descobrir</span></button></nav><div class="sidebar-collections"><div class="nav-heading"><p class="nav-label">Coleções</p><span x-text="colecoes.length"></span></div><button class="nav collection-nav" :class="{active:colecao==='Todas'&&aba==='estante'}" @click="aba='estante';colecao='Todas'"><i class="collection-dot all"></i><span>Todas as coleções</span></button><template x-for="[nome,total] in colecoes" :key="nome"><button class="nav collection-nav" :class="{active:colecao===nome&&aba==='estante'}" @click="aba='estante';colecao=nome"><i class="collection-dot"></i><span x-text="nome"></span><b x-text="total"></b></button></template></div><div class="sidebar-bottom"><div class="library-size"><svg class="icon" aria-hidden="true"><use href="#i-library"></use></svg><div><strong x-text="quadrinhos.length+' edições'"></strong><small x-text="colecoes.length+' coleções na biblioteca'"></small></div></div><button class="sidebar-add" @click="aba='estante';adicionarAberto=!adicionarAberto"><svg class="icon" aria-hidden="true"><use href="#i-plus"></use></svg>Adicionar edição</button></div></aside>
+<main><header class="topbar"><div class="breadcrumb">Biblioteca <span>/</span><span x-text="aba==='estante'?'Coleção':aba==='desejos'?'Desejos':'Descobrir'"></span></div><div class="topbar-actions"><button class="icon-button" @click="carregarQuadrinhos();carregarDesejos()" :disabled="carregandoLista" aria-label="Atualizar biblioteca" title="Atualizar biblioteca"><svg class="icon" aria-hidden="true"><use href="#i-refresh"></use></svg></button></div></header><section class="page-heading"><div><p class="eyebrow">Sua biblioteca</p><h1 x-text="aba==='estante'?'Minha coleção':aba==='desejos'?'Lista de desejos':'Descobrir'"></h1><p class="heading-description" x-text="aba==='estante'?'Quadrinhos, mangás e as coleções que você acompanha.':aba==='desejos'?'Edições que você quer ter.':'Sugestões a partir da sua coleção.'"></p></div><button class="primary" :aria-label="aba==='desejos'?'Adicionar desejo':'Adicionar edição'" x-show="aba!=='recomendacoes'" @click="aba==='desejos'?abrirCadastro('desejos'):adicionarAberto=!adicionarAberto"><svg class="icon" aria-hidden="true"><use href="#i-plus"></use></svg><span x-text="aba==='desejos'?'Adicionar desejo':'Adicionar edição'"></span></button></section>
+<div class="library-overview" x-show="aba==='estante'"><span class="overview-item"><b x-text="quadrinhos.length"></b> edições</span><span class="overview-item"><b x-text="colecoes.length"></b> coleções</span><span class="overview-item"><b x-text="quadrinhos.filter(q=>q.tipo==='Mangá').length"></b> mangás</span><span class="overview-item muted" x-show="semCapa"><b x-text="semCapa"></b> sem capa</span></div>
+<section class="add-panel" x-show="aba==='estante'&&adicionarAberto" x-cloak><div><h2>Adicionar por ISBN</h2><p>Busca automática de dados e capa.</p></div><form @submit.prevent="adicionar"><label class="sr-only" for="isbn">ISBN</label><input id="isbn" x-model="novoIsbn" placeholder="ISBN de 10 ou 13 dígitos" required><select x-model="novoTipo" aria-label="Tipo"><option>Quadrinho</option><option>Mangá</option></select><button class="primary" :disabled="carregando" x-text="carregando?'Buscando…':'Adicionar'"></button></form><div class="add-actions"><button @click="toggleScanner()" x-text="scannerAtivo?'Fechar câmera':'Escanear ISBN'"></button><button @click="abrirCadastro()">Cadastro manual</button></div><div id="reader" x-show="scannerAtivo" x-cloak></div></section>
+<div role="alert" class="notice error" x-show="mensagemErro" x-cloak><span x-text="mensagemErro"></span><button @click="mensagemErro=''" aria-label="Fechar erro">×</button></div><div role="status" class="notice" x-show="mensagemSucesso" x-text="mensagemSucesso" x-cloak></div>
+<section class="collection" x-show="aba==='estante'"><div class="section-title collection-heading"><div><p class="eyebrow">Acervo</p><h2 x-text="colecao==='Todas'?'Todas as edições':colecao"></h2></div><button @click="completarCapas()" :disabled="buscandoCapas||carregandoLista" x-text="buscandoCapas?progresso:'Buscar capas ausentes'"></button></div><div class="type-tabs" role="group" aria-label="Filtrar por tipo"><template x-for="tipo in ['Todos','Quadrinho','Mangá']"><button :class="{selected:filtro===tipo}" @click="filtro=tipo"><span x-text="tipo==='Todos'?'Tudo':tipo==='Quadrinho'?'Quadrinhos':'Mangás'"></span><b x-text="tipo==='Todos'?quadrinhos.length:quadrinhos.filter(q=>q.tipo===tipo).length"></b></button></template></div><div class="toolbar"><label class="search-field"><svg class="icon" aria-hidden="true"><use href="#i-search"></use></svg><input type="search" x-model.debounce.200ms="termoBusca" aria-label="Buscar na coleção" placeholder="Buscar na coleção…"></label><select class="mobile-collection" x-model="colecao" aria-label="Filtrar coleção"><option value="Todas">Todas as coleções</option><template x-for="[nome,total] in colecoes" :key="nome"><option :value="nome" x-text="nome+' ('+total+')'"></option></template></select><select x-model="porPagina" aria-label="Edições por página"><option value="12">12 por página</option><option value="24">24 por página</option><option value="48">48 por página</option></select><select x-model="ordem" aria-label="Ordenação"><option value="titulo">Título: A–Z</option><option value="recentes">Adicionados recentemente</option><option value="ano">Ano mais recente</option></select></div><p class="result-count" x-text="carregandoLista?'Carregando coleção…':quadrinhosFiltrados.length+' edições encontradas'"></p>
+<div class="empty" x-show="!carregandoLista&&!quadrinhosFiltrados.length" x-cloak><h2>Nenhuma edição encontrada.</h2><p>Adicione uma edição ou ajuste os filtros da sua busca.</p><button @click="termoBusca='';filtro='Todos';colecao='Todas'">Limpar filtros</button></div>
+<div class="grid"><template x-for="q in quadrinhosPagina" :key="q.id"><article class="card"><div class="cover"><div class="placeholder"><span><svg class="icon" aria-hidden="true"><use href="#i-library"></use></svg></span><strong x-text="q.titulo"></strong><small>Sem capa</small></div><template x-if="q.capa_url"><img :src="q.capa_url" :alt="'Capa de '+q.titulo" loading="lazy" @error="$el.style.display='none'"></template><span class="badge" x-text="q.tipo==='Quadrinho'?'HQ':q.tipo"></span></div><div class="card-body"><button class="collection-tag" @click="editarColecao(q)" title="Alterar coleção" x-text="q.colecao"></button><h3 x-text="q.titulo"></h3><p x-text="q.autor||'Autor não informado'"></p><p class="metadata" x-text="[q.editora,q.ano].filter(Boolean).join(' · ')||'Edição sem detalhes'"></p><details><summary>Gerenciar edição</summary><small x-text="q.isbn||'Sem ISBN'"></small><div class="card-actions"><button @click="editarCapa(q.id)">Editar capa</button><button @click="editarColecao(q)">Coleção</button><button class="danger" @click="remover(q.id)">Remover</button></div></details></div></article></template></div><nav class="pagination" aria-label="Páginas da estante" x-show="quadrinhosFiltrados.length"><button @click="pagina=1" :disabled="pagina===1">Primeira</button><button @click="pagina--" :disabled="pagina===1">Anterior</button><span aria-live="polite">Página <b x-text="pagina"></b> de <b x-text="totalPaginas"></b></span><button @click="pagina++" :disabled="pagina>=totalPaginas">Próxima</button><button @click="pagina=totalPaginas" :disabled="pagina>=totalPaginas">Última</button></nav></section>
 
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="/static/css/styles.css">
-    
-    <!-- App Logic -->
-    <script src="/static/js/app.js"></script>
-    
-    <!-- Alpine (Deve vir depois da lógica do App) -->
-    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
-    
-    <!-- PWA Configs -->
-    <link rel="manifest" href="/static/manifest.json">
-    <meta name="theme-color" content="#FF3B3B">
-    <script>
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/static/sw.js').then(() => console.log("Service Worker Registrado!"));
-        }
-    </script>
-</head>
-<body class="bg-gray-100 min-h-screen" x-data="quadrinhosApp()">
-    
-    <!-- Layout Principal: Sidebar + Conteúdo -->
-    <div class="flex flex-col lg:flex-row min-h-screen">
-        
-        <!-- SIDEBAR -->
-        <aside class="w-full lg:w-96 bg-white border-b-4 lg:border-b-0 lg:border-r-4 border-black p-6 flex flex-col z-10 comic-shadow relative">
-            <header class="mb-8 text-center transform -rotate-2">
-                <h1 class="text-5xl text-white comic-border comic-shadow inline-block px-4 py-2 comic-bg-red uppercase">
-                    Quadrinhos!
-                </h1>
-                <p class="comic-font text-xl mt-3 tracking-widest">MINHA COLEÇÃO</p>
-            </header>
-
-            <!-- ADICIONAR NOVO -->
-            <div class="comic-bg-yellow comic-border p-5 mb-8">
-                <h2 class="text-2xl mb-4 uppercase text-black comic-font tracking-wide text-center">Adicionar Novo</h2>
-                
-                <div class="flex flex-col gap-4">
-                    
-                    <!-- Seleção de Tipo -->
-                    <div class="flex gap-4 justify-center font-bold text-lg">
-                        <label class="flex items-center gap-2 cursor-pointer">
-                            <input type="radio" x-model="novoTipo" value="Quadrinho" class="w-5 h-5 accent-black"> 
-                            HQ
-                        </label>
-                        <label class="flex items-center gap-2 cursor-pointer">
-                            <input type="radio" x-model="novoTipo" value="Mangá" class="w-5 h-5 accent-black"> 
-                            MANGÁ
-                        </label>
-                    </div>
-
-                    <!-- Botão Scanner -->
-                    <button @click="toggleScanner()" class="comic-bg-blue comic-border comic-shadow text-black px-4 py-3 uppercase font-bold flex justify-center items-center gap-2 w-full">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-                        </svg>
-                        <span x-text="scannerAtivo ? 'FECHAR' : 'ESCANEAR'" class="comic-font text-xl tracking-wider pt-1"></span>
-                    </button>
-
-                    <div id="reader" x-show="scannerAtivo" class="w-full comic-border bg-white mt-1" style="display: none;"></div>
-
-                    <div class="text-center font-black text-black comic-font text-lg my-1">OU DIGITE</div>
-
-                    <!-- Formulário Manual -->
-                    <form @submit.prevent="adicionar" class="flex flex-col gap-3">
-                        <input type="text" x-model="novoIsbn" placeholder="ISBN..." 
-                               class="comic-border p-3 text-lg font-bold focus:outline-none focus:bg-white bg-gray-50 text-center" required>
-                        <button type="submit" class="bg-black text-white comic-border comic-shadow py-3 uppercase font-bold text-xl disabled:opacity-50" :disabled="carregando">
-                            <span x-show="!carregando" class="comic-font tracking-widest pt-1">SALVAR!</span>
-                            <span x-show="carregando" class="comic-font tracking-widest pt-1">POW!...</span>
-                        </button>
-                    </form>
-                    
-                    <div x-show="mensagemErro" class="text-white comic-bg-red comic-border p-3 font-bold text-sm uppercase text-center" x-text="mensagemErro" style="display: none;"></div>
-                    <div x-show="mensagemSucesso" class="text-black comic-bg-blue comic-border p-3 font-bold text-sm uppercase text-center" x-text="mensagemSucesso" style="display: none;"></div>
-                    
-                    <button @click="modalManual = true" class="mt-2 text-black font-bold underline hover:bg-black hover:text-white transition text-center uppercase tracking-wider p-2 comic-border border-dashed">
-                        Adicionar Manualmente
-                    </button>
-                </div>
-            </div>
-
-            <!-- FILTROS DA SIDEBAR -->
-            <div class="mb-6">
-                <h3 class="comic-font text-xl mb-3 tracking-wide text-center uppercase">Categorias</h3>
-                <div class="flex flex-col gap-2">
-                    <button @click="filtro = 'Todos'" :class="filtro === 'Todos' ? 'bg-black text-white' : 'bg-white text-black hover:bg-gray-200'" class="comic-border px-4 py-2 comic-font text-xl tracking-wide uppercase transition">Tudo (<span x-text="quadrinhos.length"></span>)</button>
-                    <button @click="filtro = 'Quadrinho'" :class="filtro === 'Quadrinho' ? 'bg-black text-white' : 'bg-white text-black hover:bg-gray-200'" class="comic-border px-4 py-2 comic-font text-xl tracking-wide uppercase transition">HQs (<span x-text="quadrinhos.filter(q => q.tipo === 'Quadrinho').length"></span>)</button>
-                    <button @click="filtro = 'Mangá'" :class="filtro === 'Mangá' ? 'bg-black text-white' : 'bg-white text-black hover:bg-gray-200'" class="comic-border px-4 py-2 comic-font text-xl tracking-wide uppercase transition">Mangás (<span x-text="quadrinhos.filter(q => q.tipo === 'Mangá').length"></span>)</button>
-                </div>
-            </div>
-            
-        </aside>
-
-        <!-- CONTEÚDO PRINCIPAL (GRID) -->
-        <main class="flex-1 p-6 md:p-10 overflow-y-auto">
-            
-            <div class="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
-                <div class="flex items-center gap-4">
-                    <h2 class="text-4xl text-black uppercase comic-bg-white comic-border inline-block px-5 py-3 transform rotate-1 comic-shadow">
-                        Exibindo: <span x-text="filtro"></span>
-                    </h2>
-                </div>
-                
-                <div class="flex items-center gap-4 w-full md:w-auto">
-                    <!-- Barra de Pesquisa Movida para o Header Principal -->
-                    <input type="text" x-model="termoBusca" placeholder="Pesquisar por Título..." class="comic-border p-3 text-lg font-bold focus:outline-none focus:bg-white bg-gray-50 flex-1 md:w-64">
-                    
-                    <button @click="carregarQuadrinhos()" class="text-black font-bold border-b-4 border-transparent hover:border-black transition comic-font text-2xl uppercase px-2">Atualizar</button>
-                </div>
-            </div>
-            
-            <div x-show="quadrinhos.length === 0 || quadrinhosFiltrados.length === 0" class="comic-bg-white comic-border comic-shadow p-10 text-center max-w-lg mx-auto mt-20" style="display: none;">
-                <p class="comic-font text-4xl text-gray-400 transform -rotate-2 mt-4">NENHUM ITEM ENCONTRADO... BAM!</p>
-            </div>
-            
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                <template x-for="q in quadrinhosFiltrados" :key="q.id">
-                    <div class="comic-bg-white comic-border comic-shadow p-4 flex flex-col relative group">
-                        
-                        <!-- Etiqueta do Tipo (Mangá/HQ) - Reduzida -->
-                        <div class="absolute -top-2 -right-2 px-2 py-0.5 border-2 border-black comic-shadow-sm transform rotate-3 z-10"
-                             :class="q.tipo === 'Mangá' ? 'comic-bg-blue text-black' : 'comic-bg-yellow text-black'">
-                            <span class="comic-font text-sm tracking-wider" x-text="q.tipo"></span>
-                        </div>
-                        
-                        <!-- Capa do Quadrinho -->
-                        <div class="w-full mb-3 flex-shrink-0 relative overflow-hidden bg-gray-200 comic-border" style="aspect-ratio: 2/3;">
-                            <template x-if="q.capa_url">
-                                <img :src="q.capa_url" :alt="q.titulo" class="w-full h-full object-cover">
-                            </template>
-                            <template x-if="!q.capa_url">
-                                <div class="w-full h-full flex flex-col items-center justify-center text-gray-400 opacity-50">
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                    </svg>
-                                    <span class="comic-font text-lg">Sem Imagem</span>
-                                </div>
-                            </template>
-                        </div>
-
-                        <!-- Dados do Quadrinho -->
-                        <div class="flex-1 flex flex-col">
-                            <h3 class="comic-font text-2xl text-black mb-2 leading-tight flex-1" x-text="q.titulo"></h3>
-                            <div class="space-y-1 border-t-2 border-black pt-2 mb-3">
-                                <p class="text-xs font-black text-gray-900 uppercase">Autor: <span class="font-medium normal-case block truncate" :title="q.autor || 'Desconhecido'" x-text="q.autor || 'Desconhecido'"></span></p>
-                                <p class="text-xs font-black text-gray-900 uppercase">Editora: <span class="font-medium normal-case block truncate" :title="(q.editora || 'Desconhecida') + ' ' + (q.ano ? '('+q.ano+')' : '')"><span x-text="q.editora || 'Desconhecida'"></span> <span class="font-black text-black" x-show="q.ano" x-text="'(' + q.ano + ')'"></span></span></p>
-                            </div>
-                        </div>
-                        
-                        <!-- Rodapé -->
-                        <div class="flex justify-between items-center pt-2 border-t-2 border-black">
-                            <p class="text-[10px] font-bold bg-gray-200 border-2 border-black px-1 py-0.5 max-w-[50%] truncate">ISBN: <span x-text="q.isbn"></span></p>
-                            
-                            <div class="flex gap-2">
-                                <button @click="editarCapa(q.id)" class="text-black bg-yellow-300 border-2 border-black hover:bg-yellow-400 transition px-2 py-0.5 comic-font text-sm tracking-wider" title="Trocar Capa">
-                                    IMG
-                                </button>
-                                <button @click="remover(q.id)" class="text-white comic-bg-red border-2 border-black hover:bg-black transition px-2 py-0.5 comic-font text-base tracking-wider" title="Remover">
-                                    DEL
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </template>
-            </div>
-
-        </main>
-    </div>
-
-    <!-- MODAL DE CADASTRO MANUAL -->
-    <div x-show="modalManual" class="fixed inset-0 bg-black bg-opacity-75 flex justify-center items-center z-50 p-4" style="display: none;">
-        <div class="comic-bg-white comic-border comic-shadow p-6 w-full max-w-lg relative" @click.outside="modalManual = false">
-            <button @click="modalManual = false" class="absolute -top-3 -right-3 comic-bg-red text-white comic-border comic-font text-xl px-3 py-1 hover:bg-black transition z-10">X</button>
-            
-            <h2 class="comic-font text-3xl mb-4 uppercase text-center">Cadastro Manual</h2>
-            
-            <form @submit.prevent="salvarManual" class="flex flex-col gap-3">
-                <input type="text" x-model="formManual.titulo" placeholder="Título da Obra *" class="comic-border p-2 font-bold focus:outline-none focus:bg-yellow-50" required>
-                
-                <div class="flex gap-2">
-                    <input type="text" x-model="formManual.autor" placeholder="Autor(es)" class="comic-border p-2 focus:outline-none focus:bg-yellow-50 flex-1">
-                    <input type="number" x-model="formManual.ano" placeholder="Ano" class="comic-border p-2 focus:outline-none focus:bg-yellow-50 w-24">
-                </div>
-                
-                <input type="text" x-model="formManual.editora" placeholder="Editora" class="comic-border p-2 focus:outline-none focus:bg-yellow-50">
-                <input type="text" x-model="formManual.isbn" placeholder="ISBN (Opcional)" class="comic-border p-2 focus:outline-none focus:bg-yellow-50">
-                <input type="url" x-model="formManual.capa_url" placeholder="Link da Capa (Opcional)" class="comic-border p-2 focus:outline-none focus:bg-yellow-50">
-                
-                <div class="flex gap-4 justify-center font-bold text-lg my-2">
-                    <label class="flex items-center gap-2 cursor-pointer">
-                        <input type="radio" x-model="formManual.tipo" value="Quadrinho" class="w-5 h-5 accent-black"> HQ
-                    </label>
-                    <label class="flex items-center gap-2 cursor-pointer">
-                        <input type="radio" x-model="formManual.tipo" value="Mangá" class="w-5 h-5 accent-black"> MANGÁ
-                    </label>
-                </div>
-
-                <button type="submit" class="bg-black text-white comic-border comic-shadow py-3 uppercase font-bold text-xl disabled:opacity-50 mt-2" :disabled="carregando">
-                    <span x-show="!carregando" class="comic-font tracking-widest pt-1">SALVAR!</span>
-                    <span x-show="carregando" class="comic-font tracking-widest pt-1">PROCESSANDO...</span>
-                </button>
-            </form>
-        </div>
-    </div>
-</body>
-</html>
+<section class="collection" x-show="aba==='desejos'" x-cloak><div class="section-title"><div><p class="eyebrow">Para depois</p><h2>Suas próximas aquisições</h2></div><span class="count-pill" x-text="desejos.length+' edições'"></span></div><p>Organize por prioridade e guarde suas observações. Ao comprar, use “Já adquiri”.</p><div class="empty" x-show="!desejos.length"><h3>Sua lista está vazia.</h3><p>Adicione uma edição ou explore as recomendações.</p><button @click="aba='recomendacoes'">Explorar recomendações</button></div><div class="grid"><template x-for="q in desejosPagina" :key="q.id"><article class="card"><div class="cover"><div class="placeholder"><strong x-text="q.titulo"></strong><small>Desejo</small></div><template x-if="q.capa_url"><img :src="q.capa_url" :alt="'Capa de '+q.titulo" loading="lazy" @error="$el.style.display='none'"></template><span class="badge" x-text="q.prioridade===1?'PRIORIDADE ALTA':q.prioridade===2?'PRIORIDADE MÉDIA':'PRIORIDADE BAIXA'"></span></div><div class="card-body"><h3 x-text="q.titulo"></h3><p x-text="q.autor||'Autor não informado'"></p><p x-text="[q.editora,q.ano].filter(Boolean).join(' · ')"></p><p class="wish-notes" x-text="q.notas"></p><div class="card-actions"><button class="primary" @click="adquirir(q)" :disabled="ocupados[q.id]">Já adquiri</button><button @click="abrirCadastro('desejos',q)">Editar</button><button class="danger" @click="removerDesejo(q)">Remover</button></div></div></article></template></div><nav class="pagination" aria-label="Páginas dos desejos" x-show="desejos.length"><button @click="paginaDesejos--" :disabled="paginaDesejos===1">Anterior</button><span>Página <b x-text="paginaDesejos"></b> de <b x-text="totalPaginasDesejos"></b></span><button @click="paginaDesejos++" :disabled="paginaDesejos>=totalPaginasDesejos">Próxima</button></nav></section>
+<section class="collection" x-show="aba==='recomendacoes'" x-cloak><div class="section-title"><div><p class="eyebrow">Recomendações</p><h2>Próximas leituras</h2></div><button class="primary" @click="buscarRecomendacoes()" :disabled="buscandoRecomendacoes" x-text="buscandoRecomendacoes?'Consultando catálogo…':'Buscar recomendações'"></button></div><p>Priorizamos suas coleções, autores e personagens. Edições já cadastradas ou desejadas são excluídas. As sugestões não confirmam estoque ou preço. Ao buscar, enviamos nomes de coleções e autores da sua estante ao Google Books para consultar o catálogo.</p><p class="notice" role="status" x-show="avisoRecomendacoes" x-text="avisoRecomendacoes"></p><p x-show="!recomendacoes.length&&!buscandoRecomendacoes&&!avisoRecomendacoes">Busque sugestões de coleções, autores e personagens que você já acompanha.</p><div class="grid"><template x-for="q in recomendacoes" :key="q.isbn"><article class="card"><div class="cover"><div class="placeholder"><strong x-text="q.titulo"></strong><small>Sugestão</small></div><template x-if="q.capa_url"><img :src="q.capa_url" :alt="'Capa de '+q.titulo" loading="lazy" @error="$el.style.display='none'"></template></div><div class="card-body"><span class="collection-tag" x-text="q.colecao"></span><h3 x-text="q.titulo"></h3><p x-text="q.autor"></p><p x-text="[q.editora,q.ano].filter(Boolean).join(' · ')"></p><ul class="reasons"><template x-for="motivo in q.motivos"><li x-text="motivo"></li></template></ul><p><a :href="q.fonte_url" target="_blank" rel="noopener noreferrer">Ver edição no Google Books ↗</a></p><button @click="desejar(q)" :disabled="ocupados[q.isbn]">Adicionar aos desejos</button></div></article></template></div></section>
+<footer><span class="footer-mark">estante</span><span x-text="aba==='estante'?quadrinhos.length+' edições na biblioteca':aba==='desejos'?desejos.length+' edições desejadas':'Catálogo: Google Books'"></span></footer></main>
+<div class="modal-backdrop" x-show="modalManual" x-cloak @click.self="modalManual=false"><section class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title"><div class="section-title"><h2 id="modal-title" x-text="destinoManual==='desejos'?(desejoEditando?'Editar desejo':'Adicionar desejo'):'Adicionar edição'"></h2><button @click="modalManual=false" aria-label="Fechar cadastro">×</button></div><p>Informe os dados da edição. Apenas o título é obrigatório.</p><form @submit.prevent="salvarManual"><label>Título *<input x-model="formManual.titulo" required></label><label>Autor<input x-model="formManual.autor"></label><div class="form-row"><label>Editora<input x-model="formManual.editora"></label><label>Ano<input type="number" x-model="formManual.ano"></label></div><label>ISBN (opcional)<input x-model="formManual.isbn"></label><label>Link da capa (opcional)<input type="url" x-model="formManual.capa_url"></label><label>Coleção (opcional)<input x-model="formManual.colecao" placeholder="Vazio: identificar automaticamente"></label><div x-show="destinoManual==='desejos'"><label>Prioridade<select x-model.number="formManual.prioridade"><option value="1">Alta</option><option value="2">Média</option><option value="3">Baixa</option></select></label><label>Anotações<textarea x-model="formManual.notas" maxlength="2000" rows="3" placeholder="Edição desejada, acabamento, onde procurar…"></textarea></label></div><label>Tipo<select x-model="formManual.tipo"><option>Quadrinho</option><option>Mangá</option></select></label><p class="error" x-show="mensagemErro" x-text="mensagemErro"></p><button class="primary" :disabled="carregando" x-text="carregando?'Salvando…':destinoManual==='desejos'?'Salvar desejo':'Salvar na estante'"></button></form></section></div>
+</body></html>

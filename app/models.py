@@ -11,3 +11,20 @@ class Quadrinho(Base):
     ano = Column(Integer)
     tipo = Column(String, default="Quadrinho")
     capa_url = Column(String)
+
+    colecao = Column(String, nullable=True)
+
+
+class Desejo(Base):
+    __tablename__ = 'desejos'
+    id = Column(Integer, primary_key=True)
+    isbn = Column(String, unique=True, nullable=True)
+    titulo = Column(String, nullable=False)
+    autor = Column(String)
+    editora = Column(String)
+    ano = Column(Integer)
+    tipo = Column(String, default='Quadrinho')
+    capa_url = Column(String)
+    colecao = Column(String)
+    prioridade = Column(Integer, default=2)
+    notas = Column(String, default='')

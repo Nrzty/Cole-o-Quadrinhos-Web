@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Pega a URL do banco da nuvem (.env). Se não tiver, usa o SQLite local de forma segura.
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./quadrinhos.db")
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///" + os.path.join(os.path.dirname(os.path.dirname(__file__)), "quadrinhos.db").replace("\\", "/"))
 
 # Ajuste automático caso o serviço na nuvem (como Render/Neon) forneça "postgres://"
 if DATABASE_URL.startswith("postgres://"):
@@ -27,3 +27,11 @@ def get_db():
         yield db
     finally:
         db.close()
+
+
+def migrar_banco():
+    from sqlalchemy import inspect, text
+    with engine.begin() as conn:
+        if 'colecao' not in {c['name'] for c in inspect(conn).get_columns('quadrinhos')}:
+            conn.execute(text('ALTER TABLE quadrinhos ADD COLUMN colecao VARCHAR'))
+        conn.execute(text("UPDATE quadrinhos SET isbn = NULL WHERE TRIM(isbn) = ''"))

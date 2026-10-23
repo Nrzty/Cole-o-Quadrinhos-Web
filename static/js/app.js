@@ -1,180 +1,32 @@
-document.addEventListener('alpine:init', () => {
-    Alpine.data('quadrinhosApp', () => ({
-        quadrinhos: [],
-        novoIsbn: '',
-        novoTipo: 'Quadrinho', // Quadrinho ou Mangá
-        filtro: 'Todos', // Todos, Quadrinho, Mangá
-        termoBusca: '', // Filtro por título
-        carregando: false,
-        mensagemErro: '',
-        mensagemSucesso: '',
-        scannerAtivo: false,
-        html5QrcodeScanner: null,
-        
-        modalManual: false,
-        formManual: {
-            titulo: '', autor: '', editora: '', ano: '', isbn: '', capa_url: '', tipo: 'Quadrinho'
-        },
-
-        init() {
-            this.carregarQuadrinhos();
-        },
-
-        get quadrinhosFiltrados() {
-            let lista = this.quadrinhos;
-            if (this.filtro !== 'Todos') {
-                lista = lista.filter(q => q.tipo === this.filtro);
-            }
-            if (this.termoBusca.trim() !== '') {
-                const termo = this.termoBusca.toLowerCase();
-                lista = lista.filter(q => q.titulo.toLowerCase().includes(termo));
-            }
-            return lista;
-        },
-
-        async carregarQuadrinhos() {
-            try {
-                const res = await fetch('/api/quadrinhos/');
-                this.quadrinhos = await res.json();
-            } catch (error) {
-                console.error("Erro ao carregar quadrinhos", error);
-            }
-        },
-
-        toggleScanner() {
-            if (this.scannerAtivo) {
-                this.pararScanner();
-            } else {
-                this.iniciarScanner();
-            }
-        },
-
-        iniciarScanner() {
-            this.scannerAtivo = true;
-            this.mensagemErro = '';
-            this.mensagemSucesso = '';
-            
-            setTimeout(() => {
-                this.html5QrcodeScanner = new Html5Qrcode("reader");
-                const config = { fps: 10, qrbox: { width: 200, height: 100 } };
-                
-                this.html5QrcodeScanner.start(
-                    { facingMode: "environment" },
-                    config,
-                    (decodedText, decodedResult) => {
-                        this.novoIsbn = decodedText;
-                        this.pararScanner();
-                        this.adicionar();
-                    },
-                    (errorMessage) => {
-                        // Silencioso
-                    }
-                ).catch((err) => {
-                    this.mensagemErro = "Erro ao acessar câmera.";
-                    this.scannerAtivo = false;
-                });
-            }, 200);
-        },
-
-        pararScanner() {
-            if (this.html5QrcodeScanner) {
-                this.html5QrcodeScanner.stop().then(() => {
-                    this.html5QrcodeScanner.clear();
-                    this.scannerAtivo = false;
-                }).catch(err => console.error("Erro ao parar scanner:", err));
-            } else {
-                this.scannerAtivo = false;
-            }
-        },
-
-        async adicionar() {
-            if (!this.novoIsbn) return;
-            
-            this.carregando = true;
-            this.mensagemErro = '';
-            this.mensagemSucesso = '';
-            
-            try {
-                const isbnLimpo = this.novoIsbn.replace(/[^0-9X-]/gi, '');
-                
-                const res = await fetch('/api/quadrinhos/', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ isbn: isbnLimpo, tipo: this.novoTipo })
-                });
-                
-                if (!res.ok) {
-                    const err = await res.json();
-                    throw new Error(err.detail || 'Erro ao adicionar o quadrinho.');
-                }
-                
-                const json = await res.json();
-                this.novoIsbn = '';
-                this.mensagemSucesso = `"${json.titulo}" salvo!`;
-                await this.carregarQuadrinhos();
-                
-                setTimeout(() => { this.mensagemSucesso = ''; }, 3000);
-            } catch (error) {
-                this.mensagemErro = error.message;
-            } finally {
-                this.carregando = false;
-            }
-        },
-
-        async salvarManual() {
-            if (!this.formManual.titulo) { alert("O título é obrigatório!"); return; }
-            this.carregando = true;
-            try {
-                const res = await fetch('/api/quadrinhos/manual', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(this.formManual)
-                });
-                
-                if (!res.ok) throw new Error((await res.json()).detail || "Erro ao adicionar.");
-                
-                this.modalManual = false;
-                this.formManual = {titulo: '', autor: '', editora: '', ano: '', isbn: '', capa_url: '', tipo: 'Quadrinho'};
-                this.mensagemSucesso = "Cadastrado com sucesso!";
-                await this.carregarQuadrinhos();
-                setTimeout(() => { this.mensagemSucesso = ''; }, 3000);
-            } catch (error) {
-                alert(error.message);
-            } finally {
-                this.carregando = false;
-            }
-        },
-
-        async remover(id) {
-            if(!confirm("Remover da coleção?")) return;
-            try {
-                const res = await fetch(`/api/quadrinhos/${id}`, { method: 'DELETE' });
-                if(res.ok) {
-                    await this.carregarQuadrinhos();
-                }
-            } catch (error) {
-                console.error("Erro ao remover", error);
-            }
-        },
-
-        async editarCapa(id) {
-            const url = prompt("Cole aqui o link da imagem da capa (ex: site da Amazon, Panini, etc):");
-            if (!url) return;
-            
-            try {
-                const res = await fetch(`/api/quadrinhos/${id}/capa`, {
-                    method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ capa_url: url })
-                });
-                if (res.ok) {
-                    await this.carregarQuadrinhos();
-                } else {
-                    alert("Erro ao atualizar a capa.");
-                }
-            } catch (error) {
-                console.error("Erro ao editar capa", error);
-            }
-        }
-    }))
-})
+document.addEventListener('alpine:init', () => Alpine.data('quadrinhosApp', () => ({
+ adicionarAberto: false, pagina: 1, porPagina: 24, aba: 'estante', desejos: [], recomendacoes: [], buscandoRecomendacoes: false, avisoRecomendacoes: '', paginaDesejos: 1, destinoManual: 'estante', desejoEditando: null, ocupados: {},
+ quadrinhos: [], novoIsbn: '', novoTipo: 'Quadrinho', filtro: 'Todos', colecao: 'Todas', termoBusca: '', ordem: 'titulo', carregando: false, carregandoLista: true, mensagemErro: '', mensagemSucesso: '', progresso: '', buscandoCapas: false, scannerAtivo: false, scanner: null, modalManual: false,
+ formManual: {titulo:'', autor:'', editora:'', ano:'', isbn:'', capa_url:'', tipo:'Quadrinho', colecao:''},
+ init() { this.carregarQuadrinhos(); this.carregarDesejos(); for(const campo of ['filtro','colecao','termoBusca','ordem','porPagina']) this.$watch(campo,()=>{this.pagina=1;}); this.$watch('quadrinhos',()=>{this.pagina=Math.min(this.pagina,this.totalPaginas);}); this.$watch('desejos',()=>{this.paginaDesejos=Math.min(this.paginaDesejos,this.totalPaginasDesejos);}); },
+ get totalPaginas(){return Math.max(1,Math.ceil(this.quadrinhosFiltrados.length/Number(this.porPagina)));},
+ get quadrinhosPagina(){return this.quadrinhosFiltrados.slice((this.pagina-1)*Number(this.porPagina),this.pagina*Number(this.porPagina));},
+ get totalPaginasDesejos(){return Math.max(1,Math.ceil(this.desejos.length/12));},
+ get desejosPagina(){return this.desejos.slice((this.paginaDesejos-1)*12,this.paginaDesejos*12);},
+ async aquisicoes(url,options={}){const r=await fetch('/api/'+url,options);const data=await r.json();if(!r.ok)throw Error(Array.isArray(data.detail)?data.detail.map(e=>e.msg).join('; '):data.detail||'Não foi possível concluir.');return data;},
+ async carregarDesejos(){try{this.desejos=await this.aquisicoes('desejos');}catch(e){this.mensagemErro=e.message;}},
+ abrirCadastro(destino='estante',q=null){this.destinoManual=destino;this.desejoEditando=q?.id||null;this.formManual={titulo:'',autor:'',editora:'',ano:'',isbn:'',capa_url:'',tipo:'Quadrinho',colecao:'',prioridade:2,notas:'',...(q||{})};this.mensagemErro='';this.modalManual=true;},
+ async buscarRecomendacoes(){if(this.buscandoRecomendacoes)return;this.buscandoRecomendacoes=true;this.avisoRecomendacoes='';try{const data=await this.aquisicoes('recomendacoes');this.recomendacoes=data.itens;this.avisoRecomendacoes=data.mensagem;}catch(e){this.avisoRecomendacoes=e.message;}finally{this.buscandoRecomendacoes=false;}},
+ async desejar(q){if(this.ocupados[q.isbn])return;this.ocupados[q.isbn]=true;try{await this.aquisicoes('desejos',this.json('POST',{titulo:q.titulo,isbn:q.isbn,autor:q.autor,editora:q.editora,ano:q.ano,tipo:q.tipo,capa_url:q.capa_url,colecao:q.colecao==='Outras coleções'?null:q.colecao}));this.recomendacoes=this.recomendacoes.filter(x=>x.isbn!==q.isbn);await this.carregarDesejos();this.mensagemSucesso='Edição adicionada à lista de desejos.';}catch(e){this.mensagemErro=e.message;}finally{delete this.ocupados[q.isbn];}},
+ async adquirir(q){if(!confirm('Adicionar esta edição à sua estante e retirar da lista de desejos?'))return;if(this.ocupados[q.id])return;this.ocupados[q.id]=true;try{await this.aquisicoes('desejos/'+q.id+'/adquirir',{method:'POST'});await Promise.all([this.carregarQuadrinhos(),this.carregarDesejos()]);this.recomendacoes=[];this.mensagemSucesso='Edição adicionada à estante.';}catch(e){this.mensagemErro=e.message;}finally{delete this.ocupados[q.id];}},
+ async removerDesejo(q){if(!confirm('Remover esta edição da lista de desejos?'))return;try{await this.aquisicoes('desejos/'+q.id,{method:'DELETE'});await this.carregarDesejos();}catch(e){this.mensagemErro=e.message;}},
+ normalizar(s) { return (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase(); },
+ get colecoes() { const counts = {}; this.quadrinhos.forEach(q => counts[q.colecao] = (counts[q.colecao] || 0)+1); return Object.entries(counts).sort((a,b)=>a[0].localeCompare(b[0],'pt-BR')); },
+ get quadrinhosFiltrados() { const term = this.normalizar(this.termoBusca.trim()); return this.quadrinhos.filter(q => (this.filtro==='Todos'||q.tipo===this.filtro) && (this.colecao==='Todas'||q.colecao===this.colecao) && this.normalizar([q.titulo,q.autor,q.editora,q.isbn,q.colecao].join(' ')).includes(term)).sort((a,b)=>this.ordem==='recentes'?b.id-a.id:this.ordem==='ano'?(b.ano||0)-(a.ano||0):a.titulo.localeCompare(b.titulo,'pt-BR',{numeric:true})); },
+ get semCapa() { return this.quadrinhos.filter(q=>!q.capa_url).length; },
+ async api(url, options={}) { const r=await fetch('/api/quadrinhos'+url, options); const data=await r.json(); if(!r.ok) throw Error(Array.isArray(data.detail)?data.detail.map(e=>e.msg).join('; '):data.detail||'Não foi possível concluir.'); return data; },
+ json(method, data) { return {method,headers:{'Content-Type':'application/json'},body:JSON.stringify(data)}; },
+ async carregarQuadrinhos() { this.carregandoLista=true; try { const lista=[]; for(let skip=0;;skip+=500) { const lote=await this.api('/?skip='+skip+'&limit=500'); lista.push(...lote); if(lote.length<500)break; } this.quadrinhos=lista; } catch(e){this.mensagemErro=e.message;} finally{this.carregandoLista=false;} },
+ async adicionar() { if(this.carregando)return; this.carregando=true; this.mensagemErro=''; try{await this.api('/',this.json('POST',{isbn:this.novoIsbn,tipo:this.novoTipo}));this.novoIsbn='';this.mensagemSucesso='Quadrinho adicionado à coleção.';await this.carregarQuadrinhos();}catch(e){this.mensagemErro=e.message;}finally{this.carregando=false;} },
+ async salvarManual(){if(this.carregando)return;this.carregando=true;this.mensagemErro='';try{const dados={...this.formManual,ano:this.formManual.ano===''?null:Number(this.formManual.ano)};if(this.destinoManual==='desejos'){await this.aquisicoes('desejos'+(this.desejoEditando?'/'+this.desejoEditando:''),this.json(this.desejoEditando?'PUT':'POST',dados));await this.carregarDesejos();this.recomendacoes=[];}else{await this.api('/manual',this.json('POST',dados));await this.carregarQuadrinhos();this.recomendacoes=[];}this.modalManual=false;this.mensagemSucesso='Cadastro salvo.';}catch(e){this.mensagemErro=e.message;}finally{this.carregando=false;} },
+ async completarCapas() { if(this.buscandoCapas)return;this.buscandoCapas=true;let encontradas=0,falhas=0;const itens=this.quadrinhos.filter(q=>!q.capa_url&&q.isbn);try{for(let i=0;i<itens.length;i++){this.progresso=`Buscando capa ${i+1} de ${itens.length}…`;try{const q=await this.api('/'+itens[i].id+'/buscar-capa',{method:'POST'});if(q.capa_url)encontradas++;this.quadrinhos=this.quadrinhos.map(x=>x.id===q.id?q:x);}catch(e){falhas++;}}this.mensagemSucesso=`${encontradas} capas adicionadas. ${itens.length-encontradas-falhas} sem resultado; ${falhas} falhas. Itens sem ISBN precisam de um link manual.`;}finally{this.buscandoCapas=false;this.progresso='';} },
+ async editarColecao(q) { const valor=prompt('Nome da coleção. Deixe vazio para usar a identificação automática.',q.colecao_manual?q.colecao:'');if(valor===null)return;try{await this.api('/'+q.id+'/colecao',this.json('PATCH',{colecao:valor}));await this.carregarQuadrinhos();}catch(e){this.mensagemErro=e.message;} },
+ async editarCapa(id) { const url=prompt('Cole o link da capa. Deixe vazio para remover e permitir nova busca.');if(url===null)return;try{await this.api('/'+id+'/capa',this.json('PATCH',{capa_url:url.trim()}));await this.carregarQuadrinhos();}catch(e){this.mensagemErro=e.message;} },
+ async remover(id){if(!confirm('Remover este quadrinho da coleção?'))return;try{await this.api('/'+id,{method:'DELETE'});await this.carregarQuadrinhos();}catch(e){this.mensagemErro=e.message;}},
+ async toggleScanner(){if(this.scannerAtivo){await this.pararScanner();return;}this.scannerAtivo=true;await this.$nextTick();try{this.scanner=new Html5Qrcode('reader');await this.scanner.start({facingMode:'environment'},{fps:10,qrbox:{width:240,height:120}},async text=>{if(this.carregando)return;this.novoIsbn=text;await this.pararScanner();await this.adicionar();},()=>{});}catch(e){this.mensagemErro='Não foi possível abrir a câmera. Verifique a permissão e use HTTPS ou localhost.';this.scannerAtivo=false;}},
+ async pararScanner(){try{if(this.scanner){await this.scanner.stop();this.scanner.clear();}}catch(e){}finally{this.scanner=null;this.scannerAtivo=false;}}
+})));
