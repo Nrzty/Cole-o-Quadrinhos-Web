@@ -8,7 +8,7 @@ def normalizar(texto):
 
 def identificar_colecao(titulo, ano=None):
     texto = normalizar(titulo)
-    if re.search(r'\babsolute\b|\babsoluto\b', texto):
+    if re.search(r'^(?:batman\s*[:\-]\s*)?absolute\s+(?:batman|superman|mulher[ -]maravilha|flash|lanterna verde|cacador de marte|arqueiro verde)\b', texto):
         return 'Absolute'
     if re.search(r'\b(?:a )?saga d[oa] batman\b', texto):
         return 'A Saga do Batman'

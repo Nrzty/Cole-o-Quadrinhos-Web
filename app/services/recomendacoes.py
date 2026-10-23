@@ -1,71 +1,83 @@
-"""Recomenda edições reais do catálogo; não inventa títulos nem volumes."""
+"""Recomenda conteúdo ainda ausente, em edições brasileiras confirmadas."""
 import asyncio
 import os
 import re
 import time
-from collections import Counter
+from urllib.parse import urlparse
 import httpx
-from app.services.classificacao import normalizar, identificar_colecao
+from app.services.classificacao import identificar_colecao
 from app.services.capas import url_segura
+from app.services.leitura import planejar, corresponde, sobrepoe, serie_volume, limpo
+from app.services.catalogo_br import buscar_panini
 
 _cache = {}
 
-
 def chave_isbn(isbn):
     valor = re.sub(r'[^0-9X]', '', (isbn or '').upper())
-    if len(valor) == 10:
+    if len(valor) == 10 and valor[:9].isdigit():
         base = '978' + valor[:9]
         return base + str((10 - sum(int(n) * (1 if i % 2 == 0 else 3) for i, n in enumerate(base)) % 10) % 10)
     return valor
 
-
 def chave_titulo(titulo):
-    return re.sub(r'[^a-z0-9]+', ' ', normalizar(titulo)).strip()
+    return limpo(titulo)
 
+def edicao_brasileira(q):
+    if q.get('publicacao_br') and urlparse(q.get('fonte_url', '')).hostname == 'panini.com.br':
+        return True
+    isbn = chave_isbn(q.get('isbn'))
+    # Português sozinho não prova publicação no Brasil. A edição também precisa
+    # de um ISBN de grupo brasileiro; país de venda não é país de publicação.
+    return q.get('idioma') in ('pt', 'pt-BR', 'pt-br') and len(isbn) == 13 and isbn.startswith(('97865', '97885'))
+
+def mesma_edicao_ou_conteudo(a, b):
+    if a.get('isbn') and b.get('isbn') and chave_isbn(a['isbn']) == chave_isbn(b['isbn']):
+        return True
+    sa, sb = serie_volume(a), serie_volume(b)
+    return bool(sa and sa == sb) or sobrepoe(a, b)
 
 def classificar(candidatos, acervo, desejos):
-    excluidos = acervo + desejos
-    isbns = {chave_isbn(q.get('isbn')) for q in excluidos if q.get('isbn')}
-    titulos = {chave_titulo(q['titulo']) for q in excluidos}
-    colecoes = Counter(q.get('colecao') or identificar_colecao(q['titulo']) for q in acervo)
-    autores = Counter(normalizar(a.strip()) for q in acervo for a in (q.get('autor') or '').split(',') if a.strip())
-    editoras = {normalizar(q.get('editora')) for q in acervo if q.get('editora')}
-    temas = {'batman','superman','wonder woman','mulher maravilha','homem aranha','spider man','x men','sandman','naruto','one piece','dragon ball','demon slayer','jujutsu','berserk','watchmen','vingadores','avengers','flash','lanterna verde','green lantern','hellboy','spawn','akira','bleach','death note'}
-    temas_acervo = {t for t in temas if any(t in chave_titulo(q['titulo']) for q in acervo)}
-    resultado = []
-    vistos = set()
+    planos = planejar(acervo, desejos)
+    resultados = []
     for q in candidatos:
-        isbn = chave_isbn(q.get('isbn'))
-        titulo = chave_titulo(q['titulo'])
-        if not isbn or isbn in isbns or titulo in titulos or isbn in vistos or titulo in vistos:
+        if not edicao_brasileira(q) or any(mesma_edicao_ou_conteudo(q, x) for x in acervo + desejos):
             continue
-        serie = q.get('colecao') or identificar_colecao(q['titulo'])
-        mesma_serie = serie != 'Outras coleções' and serie in colecoes
-        temas_comuns = sorted(t for t in temas_acervo if t in titulo)
-        categorias = normalizar(' '.join(q.get('categorias', [])))
-        if not (mesma_serie or temas_comuns or any(t in categorias for t in ['comics','graphic novels','manga','quadrinhos'])):
+        compativeis = [p for p in planos if corresponde(q, p)]
+        if not compativeis:
             continue
-        motivos, pontos = [], 0
-        if mesma_serie:
-            pontos += 60 + min(colecoes[serie], 5)
-            motivos.append('Da coleção ' + serie)
-        comuns = [a.strip() for a in (q.get('autor') or '').split(',') if normalizar(a.strip()) in autores]
-        if comuns:
-            pontos += 25
-            motivos.append('Autor que você já coleciona: ' + ', '.join(comuns))
-        if temas_comuns:
-            pontos += 15
-            motivos.append('Personagem ou universo presente na sua estante: ' + ', '.join(temas_comuns))
-        if normalizar(q.get('editora')) in editoras:
-            pontos += 5
-            motivos.append('Editora presente na sua coleção')
-        if pontos < 15:
-            continue
-        vistos.add(isbn)
-        vistos.add(titulo)
-        resultado.append(q | {'colecao': serie, 'motivos': motivos, 'pontuacao': pontos})
-    return sorted(resultado, key=lambda q: (-q['pontuacao'], q['titulo']))[:24]
+        plano = max(compativeis, key=lambda p: p['prioridade'])
+        if 'serie' in plano:
+            q = q | {'tipo': next((x.get('tipo', 'Quadrinho') for x in acervo if (s := serie_volume(x)) and s[0] == plano['serie']), 'Quadrinho')}
+        resultados.append(q | {'colecao': q.get('colecao') or identificar_colecao(q['titulo']),
+            'motivos': [plano['motivo']], 'pontuacao': plano['prioridade'], 'categoria': plano['categoria'],
+            'fonte_relacao': plano.get('fonte_relacao'),
+            'chave': chave_isbn(q.get('isbn')) or q.get('fonte_url') or chave_titulo(q['titulo'])})
+    # Uma história aparece uma vez, mesmo com vários formatos e ISBNs no catálogo.
+    finais = []
+    for q in sorted(resultados, key=lambda q: (-q['pontuacao'], q.get('fonte_nome') != 'Panini Brasil', 'omnibus' in limpo(q['titulo']), q['titulo'])):
+        if not any(mesma_edicao_ou_conteudo(q, x) for x in finais):
+            finais.append(q)
+    return finais[:12]
 
+async def buscar_google(client, plano):
+    params = {'q': plano['busca'] + ' Panini', 'maxResults': 20, 'printType': 'books', 'langRestrict': 'pt', 'country': 'BR'}
+    if os.getenv('GOOGLE_BOOKS_API_KEY'):
+        params['key'] = os.environ['GOOGLE_BOOKS_API_KEY']
+    res = await client.get('https://www.googleapis.com/books/v1/volumes', params=params)
+    res.raise_for_status()
+    candidatos = []
+    for item in res.json().get('items', []):
+        info = item.get('volumeInfo', {})
+        ids = info.get('industryIdentifiers', [])
+        isbn = next((i.get('identifier') for i in ids if i.get('type') == 'ISBN_13'), None) or next((i.get('identifier') for i in ids if i.get('type') == 'ISBN_10'), None)
+        if not isbn or not info.get('title'):
+            continue
+        titulo = info['title'] + (': ' + info['subtitle'] if info.get('subtitle') else '')
+        candidatos.append({'isbn': isbn, 'titulo': titulo, 'autor': ', '.join(info.get('authors', [])),
+            'editora': info.get('publisher'), 'ano': int(info['publishedDate'][:4]) if re.match(r'^\d{4}', info.get('publishedDate') or '') else None,
+            'capa_url': url_segura(info.get('imageLinks', {}).get('thumbnail')), 'tipo': 'Quadrinho',
+            'idioma': info.get('language'), 'fonte_nome': 'Google Books', 'fonte_url': 'https://books.google.com/books?id=' + item['id']})
+    return [q for q in candidatos if edicao_brasileira(q) and corresponde(q, plano)]
 
 async def recomendar(acervo, desejos):
     if not acervo:
@@ -74,43 +86,30 @@ async def recomendar(acervo, desejos):
     cache = _cache.get(assinatura)
     if cache and time.monotonic() - cache[0] < 900:
         return cache[1]
-    series = Counter(q.get('colecao') or identificar_colecao(q['titulo']) for q in acervo)
-    queries = [nome + ' quadrinhos' for nome, _ in series.most_common() if nome != 'Outras coleções'][:2]
-    autores = Counter(a.strip() for q in acervo for a in (q.get('autor') or '').split(',') if a.strip())
-    queries += [nome + ' comics' for nome, _ in autores.most_common(2)]
-    if not queries:
-        queries = [acervo[0]['titulo'] + ' quadrinhos']
+    planos = planejar(acervo, desejos)
+    if not planos:
+        return {'itens': [], 'mensagem': 'Ainda não identificamos uma sequência ou relação de leitura segura. Confira os nomes das séries e a numeração das edições; não usamos apenas autor ou editora para sugerir compras.'}
     falhas = []
-    async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
-        async def consultar(query):
-            params = {'q': query, 'maxResults': 30, 'printType': 'books'}
-            if os.getenv('GOOGLE_BOOKS_API_KEY'):
-                params['key'] = os.environ['GOOGLE_BOOKS_API_KEY']
-            try:
-                res = await client.get('https://www.googleapis.com/books/v1/volumes', params=params)
-                res.raise_for_status()
-                return res.json().get('items', [])
-            except (httpx.HTTPError, ValueError):
-                falhas.append(query)
-                return []
-        lotes = await asyncio.gather(*(consultar(q) for q in dict.fromkeys(queries)))
-    candidatos = []
-    for lote in lotes:
-        for item in lote:
-            info = item.get('volumeInfo', {})
-            ids = info.get('industryIdentifiers', [])
-            isbn = next((i.get('identifier') for i in ids if i.get('type') == 'ISBN_13'), None) or next((i.get('identifier') for i in ids if i.get('type') == 'ISBN_10'), None)
-            if not isbn or not info.get('title'):
-                continue
-            titulo = info['title'] + (': ' + info['subtitle'] if info.get('subtitle') else '')
-            candidatos.append({'isbn': isbn, 'titulo': titulo, 'autor': ', '.join(info.get('authors', [])),
-                'editora': info.get('publisher'), 'ano': int(info['publishedDate'][:4]) if re.match(r'^\d{4}', info.get('publishedDate', '')) else None,
-                'capa_url': url_segura(info.get('imageLinks', {}).get('thumbnail')), 'tipo': 'Mangá' if 'manga' in normalizar(' '.join(info.get('categories', []))) else 'Quadrinho',
-                'categorias': info.get('categories', []), 'fonte_url': 'https://books.google.com/books?id=' + item['id']})
-    itens = classificar(candidatos, acervo, desejos)
-    mensagem = 'Algumas consultas ao catálogo falharam. Tente novamente mais tarde.' if falhas else ''
-    if not itens and not mensagem:
-        mensagem = 'Não encontramos novas edições compatíveis nas consultas ao catálogo. Você pode adicionar desejos manualmente.'
+    limite = asyncio.Semaphore(3)
+    async with httpx.AsyncClient(timeout=12, follow_redirects=True, headers={'User-Agent': 'Estante/1.0 (catalog lookup)'}) as client:
+        async def consultar(plano):
+            async with limite:
+                candidatos = []
+                try:
+                    candidatos = await buscar_panini(client, plano)
+                except (httpx.HTTPError, ValueError, TypeError):
+                    falhas.append('Panini Brasil')
+                if not candidatos:
+                    try:
+                        candidatos = await buscar_google(client, plano)
+                    except (httpx.HTTPError, ValueError, TypeError):
+                        falhas.append('Google Books')
+                return candidatos
+        lotes = await asyncio.gather(*(consultar(p) for p in planos))
+    itens = classificar([q for lote in lotes for q in lote], acervo, desejos)
+    mensagem = 'Parte das consultas ao catálogo falhou. Mostramos somente as edições brasileiras confirmadas.' if falhas else ''
+    if not itens and not falhas:
+        mensagem = 'Não encontramos edições brasileiras confirmadas para os próximos passos identificados. Isso não significa que sua coleção esteja completa.'
     resposta = {'itens': itens, 'mensagem': mensagem}
     if not falhas:
         if len(_cache) > 50:

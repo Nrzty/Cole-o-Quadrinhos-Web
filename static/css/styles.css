@@ -6,3 +6,5 @@
 .mobile-collection{display:none}@media(max-width:720px){.mobile-collection{display:block!important;flex-basis:100%!important}}
 
 @media(max-width:720px){.page-heading>.primary{width:38px;min-width:38px;height:38px;padding:0;border-radius:50%;margin-top:23px}.page-heading>.primary>span{display:none}.page-heading>.primary>.icon{width:18px;height:18px}.heading-description{max-width:none}}
+
+.recommendation-kind{display:inline-block;margin-top:12px;font-size:10px;color:var(--accent);font-weight:600}
