@@ -8,9 +8,16 @@ load_dotenv()
 # Pega a URL do banco da nuvem (.env). Se não tiver, usa o SQLite local de forma segura.
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///" + os.path.join(os.path.dirname(os.path.dirname(__file__)), "quadrinhos.db").replace("\\", "/"))
 
-# Ajuste automático caso o serviço na nuvem (como Render/Neon) forneça "postgres://"
-if DATABASE_URL.startswith("postgres://"):
-    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+def normalizar_url_banco(url: str) -> str:
+    # Seleção explícita: requirements.txt instala psycopg2-binary.
+    # Não depende do driver padrão da versão do SQLAlchemy instalada.
+    for prefixo in ('postgres://', 'postgresql://', 'postgresql+psycopg://'):
+        if url.startswith(prefixo):
+            return 'postgresql+psycopg2://' + url[len(prefixo):]
+    return url
+
+
+DATABASE_URL = normalizar_url_banco(DATABASE_URL)
 
 # A engine muda dependendo de ser SQLite (local) ou Postgres (nuvem)
 if DATABASE_URL.startswith("sqlite"):
