@@ -28,3 +28,11 @@ def identificar_colecao(titulo, ano=None):
     if base and base != titulo:
         return base
     return 'Outras coleções'
+
+
+def chave_isbn(isbn):
+    valor = re.sub(r'[^0-9X]', '', (isbn or '').upper())
+    if len(valor) == 10 and valor[:9].isdigit():
+        base = '978' + valor[:9]
+        return base + str((10 - sum(int(n) * (1 if i % 2 == 0 else 3) for i, n in enumerate(base)) % 10) % 10)
+    return valor

@@ -6,6 +6,7 @@ from app.database import get_db
 from app.models import Desejo, Quadrinho
 from app.schemas import QuadrinhoManualCreate
 from app.services.quadrinho_service import QuadrinhoService
+from app.services.capas import buscar_capa, preencher_capa
 from app.services.recomendacoes import recomendar, chave_isbn, chave_titulo
 
 router = APIRouter(prefix='/api', tags=['Aquisições futuras'])
@@ -34,9 +35,11 @@ def listar(db: Session = Depends(get_db)):
     return [resposta(q) for q in db.query(Desejo).order_by(Desejo.prioridade, Desejo.id.desc()).all()]
 
 @router.post('/desejos')
-def adicionar(dados: DesejoCreate, db: Session = Depends(get_db)):
+async def adicionar(dados: DesejoCreate, db: Session = Depends(get_db)):
     verificar(db, dados)
     q = Desejo(**dados.model_dump())
+    if not q.capa_url:
+        q.capa_url = await buscar_capa(q.isbn, q.titulo)
     db.add(q)
     try:
         db.commit()
@@ -46,6 +49,15 @@ def adicionar(dados: DesejoCreate, db: Session = Depends(get_db)):
     db.refresh(q)
     return resposta(q)
 
+
+@router.post('/desejos/{id}/buscar-capa')
+async def completar_capa_desejo(id: int, db: Session = Depends(get_db)):
+    q = db.get(Desejo, id)
+    if not q:
+        raise HTTPException(404, 'Desejo não encontrado.')
+    await preencher_capa(db, q)
+    return resposta(q)
+
 @router.put('/desejos/{id}')
 def editar(id: int, dados: DesejoUpdate, db: Session = Depends(get_db)):
     q = db.get(Desejo, id)
@@ -53,6 +65,8 @@ def editar(id: int, dados: DesejoUpdate, db: Session = Depends(get_db)):
         raise HTTPException(404, 'Desejo não encontrado.')
     verificar(db, dados, id)
     for nome, valor in dados.model_dump().items():
+        if nome == "capa_url" and nome not in dados.model_fields_set:
+            continue
         setattr(q, nome, valor)
     try:
         db.commit()
@@ -80,6 +94,8 @@ def adquirir(id: int, db: Session = Depends(get_db)):
     # A edição já pode ter sido cadastrada diretamente na estante.
     existente = next((x for x in db.query(Quadrinho).all() if (q.isbn and chave_isbn(x.isbn) == chave_isbn(q.isbn)) or chave_titulo(x.titulo) == chave_titulo(q.titulo)), None)
     if existente:
+        if not existente.capa_url and q.capa_url:
+            existente.capa_url = q.capa_url
         db.delete(q)
         db.commit()
         return QuadrinhoService(db).resposta(existente)

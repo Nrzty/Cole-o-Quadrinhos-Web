@@ -1,10 +1,66 @@
 """Catálogo Panini Brasil: só gera candidatos a partir de páginas de produto reais."""
 import html
 import json
+import re
+from bs4 import BeautifulSoup
 from html.parser import HTMLParser
 from urllib.parse import urljoin, urlparse
 from app.services.capas import url_segura
+from app.services.classificacao import chave_isbn
 from app.services.leitura import corresponde
+from panini.panini import endereco, imagem_capa, normalizar
+
+
+def titulo_capa(titulo):
+    return re.sub(r"\b0+(?=\d)", "", normalizar(titulo or ""))
+
+
+async def buscar_capa_panini(client, isbn, titulo):
+    """Confirma a edição antes de associar uma imagem à estante."""
+    busca = await client.get("https://panini.com.br/catalogsearch/result/", params={"q": isbn or titulo})
+    busca.raise_for_status()
+    base = endereco(str(busca.url))
+    soup = BeautifulSoup(busca.text, "html.parser")
+    links = {}
+    if soup.select_one(".product-info-main"):
+        links[base] = None
+    else:
+        for card in soup.select(".product-item"):
+            link = card.select_one("a.product-item-link[href], .product-item-name a[href]")
+            if not link or (not isbn and titulo_capa(link.get_text(" ", strip=True)) != titulo_capa(titulo)):
+                continue
+            url = endereco(urljoin(base, link["href"]))
+            links[url] = imagem_capa(card, base)
+        if not isbn and len(links) != 1:
+            return None
+        if not isbn and next(iter(links.values())):
+            return next(iter(links.values()))
+
+    for url in list(links)[:4]:
+        ficha = busca if url == base else await client.get(url)
+        ficha.raise_for_status()
+        final = endereco(str(ficha.url))
+        pagina = BeautifulSoup(ficha.text, "html.parser")
+        nome = pagina.select_one("h1.page-title, h1")
+        if not nome:
+            continue
+        nome = titulo_capa(nome.get_text(" ", strip=True))
+        dados = Pagina()
+        dados.feed(ficha.text)
+        principal = next((p for p in dados.produtos if titulo_capa(p.get("name")) == nome), {})
+        if isbn:
+            ids = [principal.get(k) for k in ("isbn", "gtin13", "gtin", "gtin12")]
+            for linha in pagina.select("#product-attribute-specs-table tr"):
+                rotulo, valor = linha.select_one("th"), linha.select_one("td")
+                if rotulo and valor and re.search(r"\b(isbn|ean|gtin)\b", rotulo.get_text(" ", strip=True), re.I):
+                    ids.append(valor.get_text(strip=True))
+            if chave_isbn(isbn) not in {chave_isbn(str(v)) for v in ids if v}:
+                continue
+        elif nome != titulo_capa(titulo):
+            continue
+        produto = produto_br(principal, final) or {}
+        return imagem_capa(pagina, final, ficha=True) or produto.get("capa_url") or links[url]
+    return None
 
 
 class Pagina(HTMLParser):

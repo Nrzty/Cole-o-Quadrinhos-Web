@@ -49,4 +49,16 @@ class Tests(unittest.TestCase):
   with patch('app.services.capas.httpx.AsyncClient',side_effect=lambda **kw:real(transport=httpx.MockTransport(handle),**kw)):
    self.assertEqual(asyncio.run(buscar_capa('9781401207526')),'https://example.com/a.jpg')
    self.assertIsNone(asyncio.run(buscar_capa('0000000000')))
+
+ def test_completar_capa_sem_isbn_uma_vez(self):
+  from app.api.routers.quadrinhos import completar_capa
+  from app.models import Quadrinho
+  with SessionLocal() as db, patch('app.services.capas.buscar_capa',new_callable=AsyncMock) as consulta:
+   q=Quadrinho(titulo='Batman sem ISBN')
+   db.add(q);db.commit()
+   consulta.return_value='https://panini.com.br/media/batman.jpg'
+   self.assertEqual(asyncio.run(completar_capa(q.id,db))['capa_url'],consulta.return_value)
+   asyncio.run(completar_capa(q.id,db))
+   consulta.assert_awaited_once_with(None,q.titulo)
+   db.delete(q);db.commit()
 if __name__=='__main__':unittest.main(verbosity=2)

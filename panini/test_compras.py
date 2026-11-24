@@ -3,7 +3,10 @@ from datetime import date
 from decimal import Decimal
 import sys
 
-import compras as c
+if __package__:
+    from . import compras as c
+else:
+    import compras as c
 
 sys.path.insert(0, str(c.PASTA.parent))
 from app.services import leitura

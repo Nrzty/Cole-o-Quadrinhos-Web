@@ -11,10 +11,10 @@ from datetime import date
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
-if __package__:
-    from .panini import identificar, normalizar
-else:
-    from panini import identificar, normalizar
+if not __package__:
+    # Execução direta de compras.py a partir desta pasta.
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from panini.panini import identificar, normalizar
 
 try:
     from rapidfuzz.fuzz import ratio
@@ -237,6 +237,7 @@ def recomendar(ofertas, leitura, acervo, desejos, compras, hoje, historico, cfg,
         conf, metodo, correspondente = max(proprio, desejo)
         campos = {k: v for k, v in ent.items() if k not in {"historias", "chave"}}
         item = dict(**campos, preco=row["preco_atual"], url=row["url"],
+                    capa_url=row.get("capa_url") or None,
                     disponibilidade=row.get("disponibilidade") or "não informada",
                     coleta_utc=row.get("coleta_utc") or None,
                     match_confidence=round(conf, 6), metodo=metodo or None,

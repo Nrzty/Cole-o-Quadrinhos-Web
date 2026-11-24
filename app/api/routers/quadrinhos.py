@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.schemas import QuadrinhoCreate, QuadrinhoManualCreate, QuadrinhoResponse
 from app.services.quadrinho_service import QuadrinhoService
-from app.services.capas import buscar_capa
+from app.services.capas import preencher_capa
 
 router = APIRouter(prefix='/api/quadrinhos', tags=['Quadrinhos'])
 
@@ -31,11 +31,7 @@ class ColecaoUpdate(BaseModel):
 async def completar_capa(id: int, db: Session = Depends(get_db)):
     service = QuadrinhoService(db)
     q = service.obter(id)
-    if not q.capa_url:
-        url = await buscar_capa(q.isbn)
-        if url:
-            q.capa_url = url
-            return service.salvar(q)
+    await preencher_capa(db, q)
     return service.resposta(q)
 
 @router.patch('/{id}/colecao', response_model=QuadrinhoResponse)

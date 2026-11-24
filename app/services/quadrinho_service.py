@@ -32,7 +32,7 @@ class QuadrinhoService:
             raise HTTPException(409, 'Quadrinho já cadastrado na coleção!')
         info = await BrasilAPIService.fetch_isbn(isbn)
         autores = info.get('authors') or []
-        capa = url_segura(info.get('cover_url')) or await buscar_capa(isbn)
+        capa = url_segura(info.get('cover_url')) or await buscar_capa(isbn, info.get('title'))
         return self.salvar(Quadrinho(isbn=isbn, titulo=info.get('title') or 'Título desconhecido',
             autor=', '.join(autores) if isinstance(autores, list) else str(autores),
             editora=info.get('publisher'), ano=info.get('year'), tipo=dados.tipo, capa_url=capa))
@@ -41,7 +41,7 @@ class QuadrinhoService:
         valores = dados.model_dump()
         valores['colecao'] = (dados.colecao or '').strip() or None
         if not dados.capa_url:
-            valores['capa_url'] = await buscar_capa(dados.isbn)
+            valores['capa_url'] = await buscar_capa(dados.isbn, dados.titulo)
         return self.salvar(Quadrinho(**valores))
 
     def listar(self, skip=0, limit=100):

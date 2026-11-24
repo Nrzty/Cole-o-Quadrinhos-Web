@@ -101,7 +101,23 @@ document.addEventListener('alpine:init', () => Alpine.data('quadrinhosApp', () =
  async carregarQuadrinhos() { this.carregandoLista=true; try { const lista=[]; for(let skip=0;;skip+=500) { const lote=await this.api('/?skip='+skip+'&limit=500'); lista.push(...lote); if(lote.length<500)break; } this.quadrinhos=lista; } catch(e){this.mensagemErro=e.message;} finally{this.carregandoLista=false;} },
  async adicionar() { if(this.carregando)return; this.carregando=true; this.mensagemErro=''; try{await this.api('/',this.json('POST',{isbn:this.novoIsbn,tipo:this.novoTipo}));this.novoIsbn='';this.mensagemSucesso='Quadrinho adicionado à coleção.';await this.carregarQuadrinhos();}catch(e){this.mensagemErro=e.message;}finally{this.carregando=false;} },
  async salvarManual(){if(this.carregando)return;this.carregando=true;this.mensagemErro='';try{const dados={...this.formManual,ano:this.formManual.ano===''?null:Number(this.formManual.ano)};if(this.destinoManual==='desejos'){await this.aquisicoes('desejos'+(this.desejoEditando?'/'+this.desejoEditando:''),this.json(this.desejoEditando?'PUT':'POST',dados));await this.carregarDesejos();}else{await this.api('/manual',this.json('POST',dados));await this.carregarQuadrinhos();}this.modalManual=false;this.mensagemSucesso='Cadastro salvo.';}catch(e){this.mensagemErro=e.message;}finally{this.carregando=false;} },
- async completarCapas() { if(this.buscandoCapas)return;this.buscandoCapas=true;let encontradas=0,falhas=0;const itens=this.quadrinhos.filter(q=>!q.capa_url&&q.isbn);try{for(let i=0;i<itens.length;i++){this.progresso=`Buscando capa ${i+1} de ${itens.length}…`;try{const q=await this.api('/'+itens[i].id+'/buscar-capa',{method:'POST'});if(q.capa_url)encontradas++;this.quadrinhos=this.quadrinhos.map(x=>x.id===q.id?q:x);}catch(e){falhas++;}}this.mensagemSucesso=`${encontradas} capas adicionadas. ${itens.length-encontradas-falhas} sem resultado; ${falhas} falhas. Itens sem ISBN precisam de um link manual.`;}finally{this.buscandoCapas=false;this.progresso='';} },
+ async completarCapas(lista='quadrinhos') {
+   if(this.buscandoCapas)return;
+   this.buscandoCapas=true;
+   const itens=this[lista].filter(q=>!q.capa_url);
+   let encontradas=0, falhas=0;
+   try {
+     for(const [i,item] of itens.entries()) {
+       this.progresso='Buscando capa '+(i+1)+' de '+itens.length+'…';
+       try {
+         const q=await this.aquisicoes(lista+'/'+item.id+'/buscar-capa',{method:'POST'});
+         if(q.capa_url) encontradas++;
+         this[lista]=this[lista].map(x=>x.id===q.id?q:x);
+       } catch { falhas++; }
+     }
+     this.mensagemSucesso=encontradas+' capas adicionadas. '+(itens.length-encontradas-falhas)+' sem correspondência. '+falhas+' falhas.';
+   } finally { this.buscandoCapas=false;this.progresso=''; }
+ },
  async editarColecao(q) { const valor=prompt('Nome da coleção. Deixe vazio para usar a identificação automática.',q.colecao_manual?q.colecao:'');if(valor===null)return;try{await this.api('/'+q.id+'/colecao',this.json('PATCH',{colecao:valor}));await this.carregarQuadrinhos();}catch(e){this.mensagemErro=e.message;} },
  async editarCapa(id) { const url=prompt('Cole o link da capa. Deixe vazio para remover e permitir nova busca.');if(url===null)return;try{await this.api('/'+id+'/capa',this.json('PATCH',{capa_url:url.trim()}));await this.carregarQuadrinhos();}catch(e){this.mensagemErro=e.message;} },
  async remover(id){if(!confirm('Remover este quadrinho da coleção?'))return;try{await this.api('/'+id,{method:'DELETE'});await this.carregarQuadrinhos();}catch(e){this.mensagemErro=e.message;}},

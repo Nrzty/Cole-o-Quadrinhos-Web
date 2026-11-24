@@ -27,12 +27,14 @@ class BuscaPaniniTest(unittest.TestCase):
             ('''<ol class="product-items"><li class="product-item"><a class="product-item-link"
                href="/bat1">Absolute Batman 1</a><span data-price-type="finalPrice" data-price-amount="20"></span></li>
                <li class="product-item"><a class="product-item-link" href="/bat2">Absolute Batman 2</a>
+               <img class="product-image-photo" data-src="/media/bat2.jpg" src="data:image/png;base64,">
                <span data-price-type="finalPrice" data-price-amount="18"></span></li></ol>''', editoria)]
         dados = self.client.post("/api/ofertas/ranking", json={"url": campanha}).json()
         self.assertEqual(dados["editorias"]["DC Comics"], editoria)
         pagina = self.client.post("/api/ofertas/ranking", json={"url": editoria}).json()
         self.assertEqual(len(pagina["produtos"]), 2)
         self.assertEqual([i["categoria"] for i in pagina["ranking"]], ["CONTINUACAO"])
+        self.assertEqual(pagina["ranking"][0]["capa_url"], "https://panini.com.br/media/bat2.jpg")
         self.assertGreater(pagina["ranking"][0]["componentes"]["continuidade"]["pontos"], 0)
 
     @patch.object(ofertas, "baixar")

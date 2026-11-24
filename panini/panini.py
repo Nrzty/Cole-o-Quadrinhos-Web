@@ -42,6 +42,20 @@ def preco(elemento):
     return None
 
 
+def imagem_capa(bloco, url, ficha=False):
+    seletor = ('meta[property="og:image"], .product.media img.gallery-placeholder__image, .product.media img[itemprop="image"]'
+               if ficha else 'img.product-image-photo, .product-item-photo img, .product-image-wrapper img')
+    for tag in bloco.select(seletor):
+        for atributo in ("content", "data-original", "data-src", "src"):
+            valor = tag.get(atributo)
+            if not valor or valor.startswith("data:") or "/placeholder/" in valor.lower():
+                continue
+            imagem = urlsplit(urljoin(url, valor))
+            if imagem.scheme in {"http", "https"} and imagem.hostname:
+                return imagem._replace(scheme="https").geturl()
+    return None
+
+
 def extrair(html, url, avisos=None):
     soup = BeautifulSoup(html, "html.parser")
     produto = soup.select_one(".product-info-main")
@@ -82,6 +96,7 @@ def extrair(html, url, avisos=None):
         linhas.append(dict(zip(CAMPOS, (link.get_text(" ", strip=True), atual, antigo, economia,
             (100 * economia / antigo).quantize(Decimal(".01")) if economia is not None else None,
             estoque, url if produto else endereco(urljoin(url, link["href"])), url, horario))))
+        linhas[-1]["capa_url"] = imagem_capa(soup if produto else card, url, ficha=bool(produto))
     if produto:
         return linhas, None
     numero = int(parse_qs(urlsplit(url).query).get("p", ["1"])[0])
@@ -309,7 +324,7 @@ def salvar(linhas, destino, campanha=False):
             os.replace(temporario, destino)
             return
         with temporario.open("w", encoding="utf-8-sig", newline="") as arquivo:
-            campos = (*CAMPOS, "fontes", "personagens", "evidencia")
+            campos = (*CAMPOS, "fontes", "personagens", "evidencia", "capa_url")
             writer = csv.DictWriter(arquivo, ("categoria", *campos) if campanha else campos, delimiter=";")
             writer.writeheader()
             for linha in linhas:

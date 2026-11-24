@@ -5,19 +5,12 @@ import re
 import time
 from urllib.parse import urlparse
 import httpx
-from app.services.classificacao import identificar_colecao
+from app.services.classificacao import identificar_colecao, chave_isbn
 from app.services.capas import url_segura
 from app.services.leitura import planejar, corresponde, sobrepoe, serie_volume, limpo, planos_recomendacao, chave_leitura
 from app.services.catalogo_br import buscar_panini
 
 _cache = {}
-
-def chave_isbn(isbn):
-    valor = re.sub(r'[^0-9X]', '', (isbn or '').upper())
-    if len(valor) == 10 and valor[:9].isdigit():
-        base = '978' + valor[:9]
-        return base + str((10 - sum(int(n) * (1 if i % 2 == 0 else 3) for i, n in enumerate(base)) % 10) % 10)
-    return valor
 
 def chave_titulo(titulo):
     return limpo(titulo)

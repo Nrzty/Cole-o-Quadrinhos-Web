@@ -14,7 +14,7 @@ Base.metadata.create_all(bind=engine)
 migrar_banco()
 
 app = FastAPI(
-    version="2026.11.24.3",
+    version="2026.11.24.4",
     title="Controle de Quadrinhos", 
     description="Sistema com Clean Architecture e Leitor de Código de Barras"
 )

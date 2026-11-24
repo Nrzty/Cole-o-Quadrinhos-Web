@@ -6,7 +6,7 @@ from app.main import app
 from app.services.recomendacoes import classificar,chave_isbn,recomendar
 class Tests(unittest.TestCase):
  def test_wishlist_lifecycle(self):
-  with TestClient(app) as c:
+  with patch('app.api.routers.desejos.buscar_capa', new=AsyncMock(return_value='https://panini.com.br/media/batman.jpg')), TestClient(app) as c:
    data={'titulo':'Absolute Batman vol. 2','isbn':'9781401207526','prioridade':1,'notas':'Capa dura','ano':''}
    r=c.post('/api/desejos',json=data);self.assertEqual(r.status_code,200,r.text);id=r.json()['id']
    self.assertEqual(c.post('/api/desejos',json=data).status_code,409)
@@ -16,6 +16,7 @@ class Tests(unittest.TestCase):
    self.assertEqual(len(c.get('/api/desejos').json()),1)
    r=c.post(f'/api/desejos/{id}/adquirir');self.assertEqual(r.status_code,200,r.text)
    self.assertEqual(r.json()['colecao'],'Absolute')
+   self.assertEqual(r.json()['capa_url'],'https://panini.com.br/media/batman.jpg')
    self.assertEqual(c.get('/api/desejos').json(),[])
    self.assertEqual(c.post('/api/desejos',json=data).status_code,409)
    self.assertEqual(c.post(f'/api/desejos/{id}/adquirir').status_code,404)
