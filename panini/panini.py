@@ -33,7 +33,7 @@ def endereco(url):
 def preco(elemento):
     if elemento is None:
         return None
-    valor = elemento.get("data-price-amount")
+    valor = elemento.get("data-price-amount") or elemento.get("content")
     if valor and re.fullmatch(r"\d+(?:\.\d+)?", valor):
         return Decimal(valor)
     encontrado = re.search(r"R\$\s*([\d.]+,\d{2})", elemento.get_text(" ", strip=True))
@@ -42,22 +42,34 @@ def preco(elemento):
     return None
 
 
-def extrair(html, url):
+def extrair(html, url, avisos=None):
     soup = BeautifulSoup(html, "html.parser")
     produto = soup.select_one(".product-info-main")
-    cards = [produto] if produto else soup.select(".products.list .product-item, ol.product-items > li.product-item")
+    cards = [produto] if produto else soup.select(".products.list .product-item, .product-items .product-item, .products-grid .product-item")
     if not cards:
+        vazia = soup.select_one(".message.empty")
+        if vazia and re.search(r"nenhum produto|não encontramos|sem produtos", vazia.get_text(" ", strip=True), re.I):
+            return [], None
+        if soup.title:
+            titulo = soup.title.get_text(" ", strip=True)[:100]
+            raise ValueError(f'A Panini retornou a página “{titulo}”, sem cartões de produtos reconhecidos.')
         raise ValueError(f"Sem cartões de produtos reconhecidos em {url}")
     linhas = []
     horario = datetime.now(timezone.utc).isoformat(timespec="seconds")
     for card in cards:
-        link = soup.select_one("h1.page-title, h1") if produto else card.select_one("a.product-item-link")
+        link = soup.select_one("h1.page-title, h1") if produto else card.select_one("a.product-item-link, .product-item-name a[href]")
         if not link or (not produto and not link.get("href")):
+            if avisos is not None and not produto:
+                avisos.append("Produto sem link.")
+                continue
             raise ValueError(f"Produto sem link em {url}")
         atual = preco(card.select_one('[data-price-type="finalPrice"], .special-price .price, .price-box .normal-price .price'))
         if atual is None:
-            atual = preco(card.select_one(".price-box .price"))
+            atual = preco(card.select_one(".price-box .price:not(.old-price .price), [itemprop=price]"))
         if atual is None:
+            if avisos is not None and not produto:
+                avisos.append("Produto sem preço legível.")
+                continue
             raise ValueError(f"Preço ilegível: {link.get_text(strip=True)}")
         antigo = preco(card.select_one('[data-price-type="oldPrice"], .old-price .price'))
         economia = antigo - atual if antigo and antigo >= atual else None
@@ -76,18 +88,30 @@ def extrair(html, url):
     paginas = [(int(p), a) for a in soup.select(".pages a[href], link[rel~=next][href]")
                for p in parse_qs(urlsplit(urljoin(url, a["href"])).query).get("p", []) if p.isdecimal()]
     proxima = next((a for p, a in paginas if p == numero + 1), None)
-    if not proxima and any(p > numero for p, _ in paginas):
-        raise ValueError(f"Não foi encontrada a página {numero + 1}")
+    ha_mais = any(p > numero for p, _ in paginas)
     faixa = soup.select_one(".toolbar-amount")
     if faixa:
         limites = re.search(r"(\d+)\s*[-–]\s*(\d+)\s+de\s+([\d.]+)", faixa.get_text(" ", strip=True))
-        if limites and int(limites[2]) < int(limites[3].replace(".", "")) and not proxima:
-            raise ValueError("A listagem indica mais produtos, mas falta a próxima página")
+        ha_mais = ha_mais or (limites and int(limites[2]) < int(limites[3].replace(".", "")))
+    origem = urlsplit(url)
+    filtros = parse_qs(origem.query)
+    if not proxima and ha_mais:
+        filtros["p"] = [str(numero + 1)]
+        return linhas, origem._replace(query=urlencode(filtros, doseq=True), fragment="").geturl()
     if proxima:
-        consulta = parse_qs(urlsplit(urljoin(url, proxima["href"])).query)
-        if any(consulta.get(k) != v for k, v in parse_qs(urlsplit(url).query).items() if k != "p"):
-            raise ValueError("A próxima página perdeu um filtro")
-    return linhas, endereco(urljoin(url, proxima["href"])) if proxima else None
+        destino = urlsplit(endereco(urljoin(url, proxima["href"])))
+        consulta = parse_qs(destino.query)
+        for k, v in filtros.items():
+            if k == "p" or consulta.get(k) == v:
+                continue
+            if k in consulta or destino.path.rstrip("/") != origem.path.rstrip("/"):
+                if avisos is None:
+                    raise ValueError("A próxima página mudou o filtro da consulta.")
+                avisos.append("Paginação interrompida: a Panini mudou o filtro.")
+                return linhas, None
+            consulta[k] = v
+        return linhas, destino._replace(query=urlencode(consulta, doseq=True), fragment="").geturl()
+    return linhas, None
 
 
 

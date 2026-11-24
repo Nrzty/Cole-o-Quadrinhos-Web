@@ -36,6 +36,37 @@ class BuscaPaniniTest(unittest.TestCase):
         self.assertGreater(pagina["ranking"][0]["componentes"]["continuidade"]["pontos"], 0)
 
     @patch.object(ofertas, "baixar")
+    def test_dc_pagina_um_preserva_produtos_e_filtro(self, baixar):
+        url = "https://panini.com.br/black-friday-panini?editorial=DC+Comics&p=1"
+        html = '''<div class="products-grid"><div class="product-item"><strong class="product-item-name">
+            <a href="/absolute-batman">Absolute Batman</a></strong><meta itemprop="price" content="19.90">
+            </div><div class="product-item"><a class="product-item-link" href="/outro">Outro</a>
+            </div></div><div class="pages"><a href="?p=2">Avançar</a></div>'''
+        baixar.return_value = (html, url)
+        dados = self.client.post("/api/ofertas", json={"url": url}).json()
+        self.assertEqual([x["titulo"] for x in dados["itens"]], ["Absolute Batman"])
+        self.assertEqual(float(dados["itens"][0]["preco_atual"]), 19.9)
+        from urllib.parse import parse_qs, urlsplit
+        self.assertEqual(parse_qs(urlsplit(dados["proxima"]).query), {"editorial":["DC Comics"],"p":["2"]})
+        self.assertIn("preço", dados["avisos"][0])
+
+    @patch.object(ofertas, "baixar")
+    def test_dc_usa_endereco_publicado_pela_campanha(self, baixar):
+        base = ofertas.BLACK_FRIDAY
+        url = base + "?editorial=DC+Comics&p=1"
+        oficial = base + "?editorial=42"
+        baixar.side_effect = [
+            ("<html></html>", url),
+            ('''<script type="text/x-magento-init">{"*":{"Magento_Ui/js/core/app":{"components":{
+            "editorialFilter":{"items":[{"label":"DC Comics","url":"?editorial=42"}]}}}}}</script>''', base),
+            ('''<ol class="product-items"><li class="product-item"><a class="product-item-link"
+              href="/dc">HQ DC</a><span data-price-type="finalPrice" data-price-amount="10"></span>
+              </li></ol>''', oficial)]
+        dados = self.client.post("/api/ofertas", json={"url": url}).json()
+        self.assertEqual(dados["itens"][0]["titulo"], "HQ DC")
+        self.assertEqual(baixar.call_args.args, (oficial,))
+
+    @patch.object(ofertas, "baixar")
     def test_listagem_com_proxima(self, baixar):
         baixar.return_value = ('''<ol class="product-items"><li class="product-item">
             <a class="product-item-link" href="/batman">Batman</a>

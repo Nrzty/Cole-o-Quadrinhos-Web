@@ -38,6 +38,10 @@ document.addEventListener('alpine:init', () => Alpine.data('quadrinhosApp', () =
          const dados = await resposta.json().catch(() => ({}));
          if (!resposta.ok) throw Error(typeof dados.detail === 'string' ? dados.detail : 'Falha ao consultar a página (HTTP ' + resposta.status + ').');
          this.paginasLidas++;
+         for (const aviso of dados.avisos || []) {
+           const mensagem = nome + ' — ' + aviso;
+           if (!falhas.includes(mensagem)) falhas.push(mensagem);
+         }
          dados.produtos.forEach(link => produtos.add(link));
          this.produtosLidos = produtos.size;
          for (const item of dados.ranking) if (!ranking.has(item.url)) ranking.set(item.url, item);
