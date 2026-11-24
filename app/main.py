@@ -14,6 +14,7 @@ Base.metadata.create_all(bind=engine)
 migrar_banco()
 
 app = FastAPI(
+    version="2026.11.24.1",
     title="Controle de Quadrinhos", 
     description="Sistema com Clean Architecture e Leitor de Código de Barras"
 )
@@ -43,7 +44,9 @@ templates = Jinja2Templates(directory=templates_dir)
 @app.get("/", response_class=HTMLResponse, tags=["Web"])
 async def pagina_inicial(request: Request):
     """Renderiza a interface principal com o scanner."""
-    return templates.TemplateResponse(request=request, name="index.html")
+    return templates.TemplateResponse(request=request, name="index.html", context={
+        "versao": app.version, "revisao": os.getenv("RENDER_GIT_COMMIT", "")[:7],
+    })
 
 @app.api_route("/ping", methods=["GET", "HEAD"], tags=["Health Check"])
 async def ping():
