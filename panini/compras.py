@@ -11,7 +11,10 @@ from datetime import date
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
-from panini import identificar, normalizar
+if __package__:
+    from .panini import identificar, normalizar
+else:
+    from panini import identificar, normalizar
 
 try:
     from rapidfuzz.fuzz import ratio

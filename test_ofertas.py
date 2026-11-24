@@ -14,6 +14,27 @@ class BuscaPaniniTest(unittest.TestCase):
         self.client = TestClient(app)
         self.url = "https://panini.com.br/dc-comics"
 
+    @patch.object(ofertas, "listar", return_value=[])
+    @patch.object(ofertas, "QuadrinhoService")
+    @patch.object(ofertas, "baixar")
+    def test_campanha_e_ranking_da_estante(self, baixar, service, desejos):
+        campanha = "https://panini.com.br/black-friday-panini"
+        editoria = campanha + "?editorial=DC"
+        service.return_value.listar.return_value = [{"id": 1, "titulo": "Absolute Batman 1"}]
+        baixar.side_effect = [
+            ('''<script type="text/x-magento-init">{"*":{"Magento_Ui/js/core/app":{"components":{
+               "editorialFilter":{"items":[{"label":"DC Comics","url":"?editorial=DC"}]}}}}}</script>''', campanha),
+            ('''<ol class="product-items"><li class="product-item"><a class="product-item-link"
+               href="/bat1">Absolute Batman 1</a><span data-price-type="finalPrice" data-price-amount="20"></span></li>
+               <li class="product-item"><a class="product-item-link" href="/bat2">Absolute Batman 2</a>
+               <span data-price-type="finalPrice" data-price-amount="18"></span></li></ol>''', editoria)]
+        dados = self.client.post("/api/ofertas/ranking", json={"url": campanha}).json()
+        self.assertEqual(dados["editorias"]["DC Comics"], editoria)
+        pagina = self.client.post("/api/ofertas/ranking", json={"url": editoria}).json()
+        self.assertEqual(len(pagina["produtos"]), 2)
+        self.assertEqual([i["categoria"] for i in pagina["ranking"]], ["CONTINUACAO"])
+        self.assertGreater(pagina["ranking"][0]["componentes"]["continuidade"]["pontos"], 0)
+
     @patch.object(ofertas, "baixar")
     def test_listagem_com_proxima(self, baixar):
         baixar.return_value = ('''<ol class="product-items"><li class="product-item">

@@ -198,19 +198,24 @@ BLACK_FRIDAY = BASE + "/black-friday-panini"
 EDITORIAS = {"Planet Manga": "Mangás", "Marvel Comics": "Marvel", "DC Comics": "DC"}
 
 
+def filtros_campanha(html, final):
+    sopa = BeautifulSoup(html, "html.parser")
+    for script in sopa.select('script[type="text/x-magento-init"]'):
+        conteudo = script.string or ""
+        if "editorialFilter" in conteudo:
+            config = json.loads(conteudo)
+            componentes = config.get("*", {}).get("Magento_Ui/js/core/app", {}).get("components", {})
+            itens = componentes.get("editorialFilter", {}).get("items", [])
+            if itens:
+                return {i["label"]: endereco(urljoin(final, i["url"])) for i in itens if i.get("label") in EDITORIAS and i.get("url")}
+    return {}
+
+
 def black_friday():
     resultado, erros = [], []
     try:
         html, final = baixar(BLACK_FRIDAY)
-        sopa = BeautifulSoup(html, "html.parser")
-        filtros = {}
-        for script in sopa.select('script[type="text/x-magento-init"]'):
-            conteudo = script.string or ""
-            if "editorialFilter" in conteudo:
-                config = json.loads(conteudo)
-                itens = config["*"]["Magento_Ui/js/core/app"]["components"]["editorialFilter"]["items"]
-                filtros = {item["label"]: item["url"] for item in itens}
-                break
+        filtros = filtros_campanha(html, final)
     except (OSError, ValueError, KeyError) as exc:
         return [], [f"{BLACK_FRIDAY}: {exc}"]
     for editorial, categoria in EDITORIAS.items():

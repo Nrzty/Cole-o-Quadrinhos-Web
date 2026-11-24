@@ -8,9 +8,13 @@ A estante exibe 12, 24 ou 48 edições por página. Busca, ordenação e filtros
 ## Lista de desejos
 Use o menu Lista de desejos e Adicionar desejo. Título obrigatório; ISBN e demais detalhes opcionais. Defina prioridade alta, média ou baixa e anotações. É possível editar ou remover um desejo. Já adquiri transfere a edição para a estante e remove o desejo na mesma transação. ISBNs equivalentes de 10/13 caracteres e títulos iguais são tratados como duplicatas.
 
-## Recomendações de leitura e edições brasileiras
-Abra Descobrir e clique em Buscar recomendações. As consultas enviam nomes de títulos, séries e números de volumes à Panini Brasil e, como alternativa, ao Google Books. Não há consulta automática ao abrir a página. Só são exibidas edições confirmadas em páginas de produto da Panini Brasil ou com idioma português e ISBN de grupo brasileiro no Google Books; país de venda sozinho não prova publicação brasileira. O catálogo tem cobertura parcial e pode estar indisponível.
+## Descobrir e comparar ofertas
 
+Cole a URL de uma campanha, categoria, busca ou produto da Panini na aba Descobrir. Colar inicia a consulta. Para um link digitado ou para a Black Friday já preenchida, use Buscar ofertas. A tela informa o progresso e classifica cada página pelo motor de compras em panini/compras.py. Abra a pontuação para ver os fatores. Interromper busca mantém as recomendações já encontradas.
+
+## API de recomendações de leitura
+
+Os modos abaixo continuam disponíveis na API de leitura para clientes existentes.
 Há três modos: Para você mistura até três caminhos de continuação com descobertas iniciais; Continuar coleções mantém a prioridade de lacunas internas, próximo número e relações de leitura; Explorar novas histórias amplia para outros títulos mapeados dos personagens e universos da biblioteca. A busca padrão não se limita mais às continuações. O mapa de descobertas começa em Batman/Gotham/Superman/DC e não cobre todos os personagens ou editoras. Uma lacuna só é inferida entre o menor e o maior número da série que já estão cadastrados: possuir apenas o 61 não obriga a comprar o 1. Só são sugeridos números cuja edição real foi encontrada; não se inventam volumes. Um próximo número que já está nos desejos não causa salto para o seguinte. Numerações com fases/temporadas ambíguas não são tratadas como sequência segura.
 
 A identidade de histórias usa aliases em português/inglês e ignora formatos conhecidos. Ex.: Cavaleiro das Trevas DC de Bolso e edição absoluta são o mesmo conteúdo. Continuações como Contra-Ataca e A Raça Superior têm identidades distintas. Partes numeradas não são confundidas entre si; ter o volume 1 de uma história dividida não equivale a possuir a história completa. Conteúdo do omnibus Batman por Jeph Loeb e Tim Sale também é reconhecido. Obras com sobreposição são omitidas para evitar recompra; isso pode excluir um pacote que contenha também material ainda ausente. Mapeamento por título tem limites: antologias e traduções não cadastradas exigem ampliar os aliases, e números sem informação de fase podem ser ambíguos.

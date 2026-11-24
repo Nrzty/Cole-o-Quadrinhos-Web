@@ -1,26 +1,36 @@
-<section class="collection" x-show="aba==='recomendacoes'" x-cloak aria-labelledby="titulo-ofertas">
-  <div class="section-title"><h2 id="titulo-ofertas">Ofertas da Panini</h2></div>
-  <form @submit.prevent="buscarOfertas()" class="toolbar">
-    <label class="search-field">
-      <span class="sr-only">URL de produto, categoria ou busca na Panini</span>
-      <input type="url" required x-model="urlOfertas" :disabled="consultandoOfertas"
-             placeholder="Cole a URL de um produto, categoria ou busca da Panini">
-    </label>
-    <button class="primary" type="submit" :disabled="consultandoOfertas">Buscar ofertas</button>
+<section class="collection ofertas" x-show="aba==='recomendacoes'" x-cloak aria-labelledby="titulo-ofertas">
+  <h2 id="titulo-ofertas">O que comprar agora</h2>
+  <form @submit.prevent="buscarOfertas()" class="ofertas-form">
+    <label for="url-ofertas">Link da Panini</label>
+    <input id="url-ofertas" type="url" required x-model="urlOfertas" @paste="colarOferta($event)"
+           :disabled="consultandoOfertas" aria-describedby="ajuda-ofertas">
+    <button class="primary" type="submit" :disabled="consultandoOfertas"
+            x-text="consultandoOfertas?'Buscando…':'Buscar ofertas'"></button>
   </form>
-  <p role="status" aria-live="polite" x-text="avisoOfertas"></p>
+  <p id="ajuda-ofertas">Cole um link para iniciar a busca ou consulte a campanha já preenchida.</p>
+  <div class="ofertas-status" x-show="avisoOfertas" :class="{error:erroOfertas}">
+    <progress x-show="consultandoOfertas" aria-label="Consulta em andamento"></progress>
+    <p role="status" aria-live="polite" x-text="avisoOfertas"></p>
+    <small x-text="paginasLidas+' páginas lidas · '+produtosLidos+' produtos analisados · '+ofertasPanini.length+' recomendações'"></small>
+    <button type="button" x-show="consultandoOfertas" @click="pararConsulta?.()">Interromper busca</button>
+  </div>
   <div class="grid">
-    <template x-for="item in ofertasPanini" :key="item.url">
+    <template x-for="item in ofertasPanini.slice(0,limiteOfertas)" :key="item.url">
       <article class="card"><div class="card-body">
+        <span class="recommendation-kind" x-text="({CONTINUACAO:'Continuação',LACUNA:'Lacuna',WISHLIST:'Lista de desejos',AFINIDADE:'Afinidade',DESCOBERTA:'Descoberta'})[item.categoria]"></span>
         <h3><a :href="item.url" target="_blank" rel="noopener noreferrer" x-text="item.titulo"></a></h3>
-        <p><strong x-text="moeda(item.preco_atual)"></strong>
-          <template x-if="Number(item.economia)>0"><span>
-            <del x-text="moeda(item.preco_referencia)"></del>
-            <span x-text="Number(item.desconto_pct).toLocaleString('pt-BR')+'% de desconto'"></span>
-          </span></template>
+        <p><strong x-text="moeda(item.preco)"></strong>
+          <span x-show="item.desconto_pct>0" x-text="Number(item.desconto_pct).toLocaleString('pt-BR')+'% de desconto'"></span>
         </p>
         <p x-text="'Estoque: '+item.disponibilidade"></p>
+        <details><summary x-text="'Pontuação: '+Number(item.score).toLocaleString('pt-BR',{maximumFractionDigits:2})+'/100'"></summary>
+          <ul class="reasons"><template x-for="[nome,parte] in Object.entries(item.componentes)" :key="nome">
+            <li x-text="nome.replace('_',' ')+': '+Number(parte.pontos).toLocaleString('pt-BR',{maximumFractionDigits:2})+' pts'"></li>
+          </template></ul>
+        </details>
+        <button x-show="item.categoria!=='WISHLIST'" @click="desejar({...item,chave:item.url,tipo:'Quadrinho',autor:item.autor.join(', ')})" :disabled="!!ocupados[item.url]||desejos.some(d=>d.titulo===item.titulo)" x-text="desejos.some(d=>d.titulo===item.titulo)?'Na lista de desejos':'Adicionar aos desejos'"></button>
       </div></article>
     </template>
   </div>
+  <button x-show="limiteOfertas < ofertasPanini.length" @click="limiteOfertas+=24">Mostrar mais recomendações</button>
 </section>
