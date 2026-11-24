@@ -1,0 +1,30 @@
+[pesos]
+continuidade = 25
+wishlist = 22
+afinidade = 20
+desconto = 13
+preco_relativo = 7
+disponibilidade = 7
+urgencia = 2
+historico = 4
+
+[regras]
+match = 0.96
+revisao = 0.84
+afinidade = 0.12
+descoberta_minima = 30
+meia_vida_dias = 365
+economia_plena_reais = 60
+fracao_desconto_percentual = 0.65
+continuacao = 0.9
+pre_venda = 0.6
+estoque_desconhecido = 0.25
+estoque_baixo = 3
+
+[perfil]
+serie = 4
+personagens = 4
+autor = 2
+arco = 2
+era = 2
+formato = 1
