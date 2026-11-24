@@ -18,7 +18,7 @@
     <template x-for="item in ofertasPanini.slice(0,limiteOfertas)" :key="item.url">
       <article class="card">
         <template x-if="item.capa_url"><div class="cover"><img :src="item.capa_url"
-          :alt="'Capa de '+item.titulo" loading="lazy" @error="$el.parentElement.style.display='none'"></div></template>
+          :alt="'Capa de '+item.titulo" width="240" height="360" loading="lazy" @error="$el.parentElement.style.display='none'"></div></template>
         <div class="card-body">
         <span class="recommendation-kind" x-text="({CONTINUACAO:'Continuação',LACUNA:'Lacuna',WISHLIST:'Lista de desejos',AFINIDADE:'Afinidade',DESCOBERTA:'Descoberta'})[item.categoria]"></span>
         <h3><a :href="item.url" target="_blank" rel="noopener noreferrer" x-text="item.titulo"></a></h3>
