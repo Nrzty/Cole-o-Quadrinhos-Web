@@ -14,7 +14,7 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
 from urllib.parse import parse_qs, urlencode, urljoin, urlsplit
-from urllib.request import Request, urlopen
+from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 from bs4 import BeautifulSoup
 
@@ -25,7 +25,7 @@ CAMPOS = ("titulo", "preco_atual", "preco_referencia", "economia", "desconto_pct
 
 def endereco(url):
     partes = urlsplit(url)
-    if partes.scheme != "https" or partes.hostname not in {"panini.com.br", "www.panini.com.br"}:
+    if partes.scheme != "https" or not re.fullmatch(r"(?:www\.)?panini\.com\.br(?::443)?", partes.netloc, re.I):
         raise ValueError("Informe uma URL HTTPS da Panini Brasil.")
     return url
 
@@ -44,14 +44,15 @@ def preco(elemento):
 
 def extrair(html, url):
     soup = BeautifulSoup(html, "html.parser")
-    cards = soup.select(".products.list .product-item, ol.product-items > li.product-item")
+    produto = soup.select_one(".product-info-main")
+    cards = [produto] if produto else soup.select(".products.list .product-item, ol.product-items > li.product-item")
     if not cards:
         raise ValueError(f"Sem cartões de produtos reconhecidos em {url}")
     linhas = []
     horario = datetime.now(timezone.utc).isoformat(timespec="seconds")
     for card in cards:
-        link = card.select_one("a.product-item-link")
-        if not link or not link.get("href"):
+        link = soup.select_one("h1.page-title, h1") if produto else card.select_one("a.product-item-link")
+        if not link or (not produto and not link.get("href")):
             raise ValueError(f"Produto sem link em {url}")
         atual = preco(card.select_one('[data-price-type="finalPrice"], .special-price .price, .price-box .normal-price .price'))
         if atual is None:
@@ -68,7 +69,9 @@ def extrair(html, url):
             estoque = "compra disponível"
         linhas.append(dict(zip(CAMPOS, (link.get_text(" ", strip=True), atual, antigo, economia,
             (100 * economia / antigo).quantize(Decimal(".01")) if economia is not None else None,
-            estoque, endereco(urljoin(url, link["href"])), url, horario))))
+            estoque, url if produto else endereco(urljoin(url, link["href"])), url, horario))))
+    if produto:
+        return linhas, None
     numero = int(parse_qs(urlsplit(url).query).get("p", ["1"])[0])
     paginas = [(int(p), a) for a in soup.select(".pages a[href], link[rel~=next][href]")
                for p in parse_qs(urlsplit(urljoin(url, a["href"])).query).get("p", []) if p.isdecimal()]
@@ -117,9 +120,15 @@ def identificar(texto):
             if any(" " + normalizar(t) + " " in texto for t in termos.split("|"))]
 
 
+class RedirecionamentoPanini(HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return super().redirect_request(req, fp, code, msg, headers, endereco(newurl))
+
+
 def baixar(url):
     time.sleep(0.8)
-    with urlopen(Request(endereco(url), headers={"User-Agent": "PaniniOfertaReader/2.0"}), timeout=30) as res:
+    opener = build_opener(RedirecionamentoPanini())
+    with opener.open(Request(endereco(url), headers={"User-Agent": "PaniniOfertaReader/2.0"}), timeout=30) as res:
         final = endereco(res.geturl())
         consulta = parse_qs(urlsplit(final).query)
         if any(consulta.get(k) != v for k, v in parse_qs(urlsplit(url).query).items() if k != "p"):

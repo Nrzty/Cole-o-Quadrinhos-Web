@@ -3,7 +3,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from app.database import engine, Base, migrar_banco
-from app.api.routers import quadrinhos, desejos
+from app.api.routers import quadrinhos, desejos, ofertas
 from dotenv import load_dotenv
 
 # Carrega variáveis de ambiente do .env
@@ -23,6 +23,7 @@ from fastapi.staticfiles import StaticFiles
 # Configuração de Rotas
 app.include_router(quadrinhos.router)
 app.include_router(desejos.router)
+app.include_router(ofertas.router)
 
 # Configurar diretórios
 base_dir = os.path.dirname(os.path.dirname(__file__))

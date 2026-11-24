@@ -1,4 +1,34 @@
 document.addEventListener('alpine:init', () => Alpine.data('quadrinhosApp', () => ({
+ urlOfertas: '', ofertasPanini: [], consultandoOfertas: false, avisoOfertas: '',
+ moeda(valor) { return Number(valor).toLocaleString('pt-BR', {style:'currency', currency:'BRL'}); },
+ async buscarOfertas() {
+   if (this.consultandoOfertas) return;
+   this.consultandoOfertas = true;
+   this.ofertasPanini = [];
+   const paginas = new Set(), produtos = new Set();
+   let url = this.urlOfertas.trim();
+   try {
+     while (url) {
+       if (paginas.has(url)) throw Error('A Panini repetiu uma página.');
+       paginas.add(url);
+       this.avisoOfertas = 'Consultando página ' + paginas.size + '…';
+       const dados = await this.aquisicoes('ofertas', this.json('POST', {url}));
+       const novos = dados.itens.filter(item => {
+         if (produtos.has(item.url)) return false;
+         produtos.add(item.url);
+         return true;
+       });
+       if (!novos.length && paginas.size > 1) throw Error('A Panini repetiu a listagem.');
+       this.ofertasPanini.push(...novos);
+       url = dados.proxima;
+     }
+     this.avisoOfertas = produtos.size + (produtos.size === 1 ? ' produto encontrado.' : ' produtos encontrados.');
+   } catch (erro) {
+     this.avisoOfertas = (produtos.size ? 'Resultado parcial. ' : '') + erro.message;
+   } finally {
+     this.consultandoOfertas = false;
+   }
+ },
  adicionarAberto: false, pagina: 1, porPagina: 24, aba: 'estante', desejos: [], recomendacoes: [], buscandoRecomendacoes: false, avisoRecomendacoes: '', paginaDesejos: 1, destinoManual: 'estante', desejoEditando: null, ocupados: {},
  quadrinhos: [], novoIsbn: '', novoTipo: 'Quadrinho', filtro: 'Todos', colecao: 'Todas', termoBusca: '', ordem: 'titulo', carregando: false, carregandoLista: true, mensagemErro: '', mensagemSucesso: '', progresso: '', buscandoCapas: false, scannerAtivo: false, scanner: null, modalManual: false,
  formManual: {titulo:'', autor:'', editora:'', ano:'', isbn:'', capa_url:'', tipo:'Quadrinho', colecao:''},

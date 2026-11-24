@@ -1,0 +1,26 @@
+<section class="collection" x-show="aba==='recomendacoes'" x-cloak aria-labelledby="titulo-ofertas">
+  <div class="section-title"><h2 id="titulo-ofertas">Ofertas da Panini</h2></div>
+  <form @submit.prevent="buscarOfertas()" class="toolbar">
+    <label class="search-field">
+      <span class="sr-only">URL de produto, categoria ou busca na Panini</span>
+      <input type="url" required x-model="urlOfertas" :disabled="consultandoOfertas"
+             placeholder="Cole a URL de um produto, categoria ou busca da Panini">
+    </label>
+    <button class="primary" type="submit" :disabled="consultandoOfertas">Buscar ofertas</button>
+  </form>
+  <p role="status" aria-live="polite" x-text="avisoOfertas"></p>
+  <div class="grid">
+    <template x-for="item in ofertasPanini" :key="item.url">
+      <article class="card"><div class="card-body">
+        <h3><a :href="item.url" target="_blank" rel="noopener noreferrer" x-text="item.titulo"></a></h3>
+        <p><strong x-text="moeda(item.preco_atual)"></strong>
+          <template x-if="Number(item.economia)>0"><span>
+            <del x-text="moeda(item.preco_referencia)"></del>
+            <span x-text="Number(item.desconto_pct).toLocaleString('pt-BR')+'% de desconto'"></span>
+          </span></template>
+        </p>
+        <p x-text="'Estoque: '+item.disponibilidade"></p>
+      </div></article>
+    </template>
+  </div>
+</section>
